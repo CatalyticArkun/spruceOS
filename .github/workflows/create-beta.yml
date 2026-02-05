@@ -105,7 +105,7 @@ jobs:
           files: spruceV${{ steps.get_version.outputs.version }}.7z
           tag_name: v${{ steps.get_version.outputs.version }}
           body: ${{ steps.check_commits.outputs.commits }}
-          repository: spruceUI/spruceOSNightlies
+          repository: CatalyticArkun/spruceOS
           token: ${{ secrets.PAT_TOKEN }}
           draft: false
           prerelease: false
@@ -133,8 +133,8 @@ jobs:
             echo "BETA_VERSION=${{ steps.get_version.outputs.version }}" >> "$file"
             echo "BETA_CHECKSUM=$CHECKSUM" >> "$file"
             echo "BETA_SIZE_IN_MB=$SIZE_MB" >> "$file"
-            echo "BETA_LINK=https://github.com/spruceUI/spruceOSNightlies/releases/download/v${{ steps.get_version.outputs.version }}/spruceV${{ steps.get_version.outputs.version }}.7z" >> "$file"
-            echo "BETA_INFO=https://github.com/spruceUI/spruceOSNightlies/releases/tag/v${{ steps.get_version.outputs.version }}" >> "$file"
+            echo "BETA_LINK=https://github.com/CatalyticArkun/spruceOS/releases/download/v${{ steps.get_version.outputs.version }}/spruceV${{ steps.get_version.outputs.version }}.7z" >> "$file"
+            echo "BETA_INFO=https://github.com/CatalyticArkun/spruceOS/releases/tag/v${{ steps.get_version.outputs.version }}" >> "$file"
           }
           
           # Update both OTA files
@@ -163,14 +163,14 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           # Get all beta releases
-          BETA_RELEASES=$(gh api repos/spruceUI/spruceOSNightlies/releases --paginate | jq -r '.[] | select(.tag_name | contains("-beta")) | .id')
+          BETA_RELEASES=$(gh api repos/CatalyticArkun/spruceOS/releases --paginate | jq -r '.[] | select(.tag_name | contains("-beta")) | .id')
           
           # Convert to array and keep only the newest beta
           COUNT=0
           for RELEASE_ID in $BETA_RELEASES; do
             COUNT=$((COUNT + 1))
             if [ $COUNT -gt 1 ]; then
-              gh api repos/spruceUI/spruceOSNightlies/releases/$RELEASE_ID -X DELETE
+              gh api repos/CatalyticArkun/spruceOS/releases/$RELEASE_ID -X DELETE
             fi
           done
 
@@ -185,9 +185,9 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           # Get and delete all beta releases
-          BETA_RELEASES=$(gh api repos/spruceUI/spruceOSNightlies/releases --paginate | jq -r '.[] | select(.tag_name | contains("-Beta")) | .id')
+          BETA_RELEASES=$(gh api repos/CatalyticArkun/spruceOS/releases --paginate | jq -r '.[] | select(.tag_name | contains("-Beta")) | .id')
           for RELEASE_ID in $BETA_RELEASES; do
-            gh api repos/spruceUI/spruceOSNightlies/releases/$RELEASE_ID -X DELETE
+            gh api repos/CatalyticArkun/spruceOS/releases/$RELEASE_ID -X DELETE
           done
 
       - name: Clone and update OTA repos
