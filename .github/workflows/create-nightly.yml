@@ -125,7 +125,7 @@ jobs:
           files: spruceV${{ steps.get_version.outputs.version }}.7z
           tag_name: v${{ steps.get_version.outputs.version }}
           body: ${{ steps.check_commits.outputs.commits }}
-          repository: spruceUI/spruceOSNightlies
+          repository: CatalyticArkun/spruceOS
           token: ${{ secrets.PAT_TOKEN }}
           draft: false
           prerelease: false
@@ -153,8 +153,8 @@ jobs:
             echo "NIGHTLY_VERSION=${{ steps.get_version.outputs.version }}" >> "$file"
             echo "NIGHTLY_CHECKSUM=$CHECKSUM" >> "$file"
             echo "NIGHTLY_SIZE_IN_MB=$SIZE_MB" >> "$file"
-            echo "NIGHTLY_LINK=https://github.com/spruceUI/spruceOSNightlies/releases/download/v${{ steps.get_version.outputs.version }}/spruceV${{ steps.get_version.outputs.version }}.7z" >> "$file"
-            echo "NIGHTLY_INFO=https://github.com/spruceUI/spruceOSNightlies/releases/tag/v${{ steps.get_version.outputs.version }}" >> "$file"
+            echo "NIGHTLY_LINK=https://github.com/CatalyticArkun/spruceOS/releases/download/v${{ steps.get_version.outputs.version }}/spruceV${{ steps.get_version.outputs.version }}.7z" >> "$file"
+            echo "NIGHTLY_INFO=https://github.com/CatalyticArkun/spruceOS/releases/tag/v${{ steps.get_version.outputs.version }}" >> "$file"
           }
           
           # Update both OTA files
@@ -183,7 +183,7 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           # Get all releases and filter out beta releases
-          RELEASES=$(gh api repos/spruceUI/spruceOSNightlies/releases --paginate | \
+          RELEASES=$(gh api repos/CatalyticArkun/spruceOS/releases --paginate | \
             jq -r '.[] | select(.tag_name | contains("-Beta") | not) | .id')
           
           # Convert to array and keep only releases after the first 3
@@ -191,7 +191,7 @@ jobs:
           for RELEASE_ID in $RELEASES; do
             COUNT=$((COUNT + 1))
             if [ $COUNT -gt 3 ]; then
-              gh api repos/spruceUI/spruceOSNightlies/releases/$RELEASE_ID -X DELETE
+              gh api repos/CatalyticArkun/spruceOS/releases/$RELEASE_ID -X DELETE
             fi
 
           done
