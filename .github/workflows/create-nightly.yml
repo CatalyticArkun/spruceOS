@@ -107,7 +107,7 @@ jobs:
 
       - name: Create 7z archive
         run: |
-          7z a -t7z -m0=lzma2:d=16m -mx=7 -ms=off -mf- "spruceV${{ steps.get_version.outputs.version }}.7z" * .tmp_update \
+          7z a -t7z -m0=lzma2:d=16m -mx=7 -ms=off -mf- "nightly-spruceV${{ steps.get_version.outputs.version }}.7z" * .tmp_update \
             -xr!.git \
             -xr!.github \
             -x!.gitignore \
@@ -116,19 +116,35 @@ jobs:
             -x!create_spruce_release.sh \
             -x!commits_nightly.txt
           # Add the commits file separately to place it at the root
-          7z u "spruceV${{ steps.get_version.outputs.version }}.7z" commits_nightly.txt
+          7z u "nightly-spruceV${{ steps.get_version.outputs.version }}.7z" commits_nightly.txt
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Generate metadata files
         if: success() && steps.check_commits.outcome == 'success'
+        run: |
+          # Calculate file info
+          CHECKSUM=$(md5sum "nightly-spruceV${{ steps.get_version.outputs.version }}.7z" | cut -d' ' -f1)
+          SIZE_MB=$(ls -l --block-size=1M "nightly-spruceV${{ steps.get_version.outputs.version }}.7z" | awk '{print $5}')
+
+          # Create metadata file
+          cat > nightly_metadata.txt << EOF
+          NIGHTLY_VERSION=${{ steps.get_version.outputs.version }}
+          NIGHTLY_CHECKSUM=$CHECKSUM
+          NIGHTLY_SIZE_IN_MB=$SIZE_MB
+          EOF
+
+          echo "Generated metadata:"
+          cat nightly_metadata.txt
+
+      - name: Upload nightly build artifact
+        if: success() && steps.check_commits.outcome == 'success'
+        uses: actions/upload-artifact@v4
         with:
-          files: spruceV${{ steps.get_version.outputs.version }}.7z
-          tag_name: v${{ steps.get_version.outputs.version }}
-          body: ${{ steps.check_commits.outputs.commits }}
-          repository: CatalyticArkun/spruceOS
-          token: ${{ secrets.PAT_TOKEN }}
-          draft: false
-          prerelease: false
+          name: nightly-spruceV${{ steps.get_version.outputs.version }}
+          path: |
+            nightly-spruceV${{ steps.get_version.outputs.version }}.7z
+            nightly_metadata.txt
+            commits_nightly.txt
+          retention-days: 30
 
       - name: Update OTA files
         if: success() && steps.check_commits.outcome == 'success'
@@ -138,29 +154,30 @@ jobs:
           # Clone both repositories
           git clone https://github.com/spruceUI/spruceui.github.io.git ota_repo
           git clone https://github.com/spruceUI/spruceSource.git source_repo
-          
+
           # Calculate file info
-          CHECKSUM=$(md5sum "spruceV${{ steps.get_version.outputs.version }}.7z" | cut -d' ' -f1)
-          SIZE_MB=$(ls -l --block-size=1M "spruceV${{ steps.get_version.outputs.version }}.7z" | awk '{print $5}')
-          
+          CHECKSUM=$(md5sum "nightly-spruceV${{ steps.get_version.outputs.version }}.7z" | cut -d' ' -f1)
+          SIZE_MB=$(ls -l --block-size=1M "nightly-spruceV${{ steps.get_version.outputs.version }}.7z" | awk '{print $5}')
+
           # Function to update OTA file
           update_ota_file() {
             local file="$1"
             local content
             content=$(cat "$file")
-            
+
             echo "$content" | grep -v "^NIGHTLY_" > "$file"
             echo "NIGHTLY_VERSION=${{ steps.get_version.outputs.version }}" >> "$file"
             echo "NIGHTLY_CHECKSUM=$CHECKSUM" >> "$file"
             echo "NIGHTLY_SIZE_IN_MB=$SIZE_MB" >> "$file"
-            echo "NIGHTLY_LINK=https://github.com/CatalyticArkun/spruceOS/releases/download/v${{ steps.get_version.outputs.version }}/spruceV${{ steps.get_version.outputs.version }}.7z" >> "$file"
-            echo "NIGHTLY_INFO=https://github.com/CatalyticArkun/spruceOS/releases/tag/v${{ steps.get_version.outputs.version }}" >> "$file"
+            # Note: Artifacts are downloaded via GitHub Actions UI, not direct links
+            echo "NIGHTLY_LINK=https://github.com/CatalyticArkun/spruceOS/actions" >> "$file"
+            echo "NIGHTLY_INFO=Nightly build ${{ steps.get_version.outputs.version }} - Download from GitHub Actions artifacts" >> "$file"
           }
-          
+
           # Update both OTA files
           update_ota_file "ota_repo/OTA/spruce"
           update_ota_file "source_repo/OTA/spruce"
-          
+
           # Update primary OTA repo
           cd ota_repo
           git config user.name "GitHub Actions Bot"
@@ -168,7 +185,7 @@ jobs:
           git add OTA/spruce
           git commit -m "Update nightly release to ${{ steps.get_version.outputs.version }}"
           git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/spruceUI/spruceui.github.io.git main
-          
+
           # Update backup OTA repo
           cd ../source_repo
           git config user.name "GitHub Actions Bot"
@@ -176,25 +193,6 @@ jobs:
           git add OTA/spruce
           git commit -m "Update nightly release to ${{ steps.get_version.outputs.version }}"
           git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/spruceUI/spruceSource.git main
-
-      - name: Delete old releases
-        if: success() && steps.check_commits.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: |
-          # Get all releases and filter out beta releases
-          RELEASES=$(gh api repos/CatalyticArkun/spruceOS/releases --paginate | \
-            jq -r '.[] | select(.tag_name | contains("-Beta") | not) | .id')
-          
-          # Convert to array and keep only releases after the first 3
-          COUNT=0
-          for RELEASE_ID in $RELEASES; do
-            COUNT=$((COUNT + 1))
-            if [ $COUNT -gt 3 ]; then
-              gh api repos/CatalyticArkun/spruceOS/releases/$RELEASE_ID -X DELETE
-            fi
-
-          done
 
 
 
