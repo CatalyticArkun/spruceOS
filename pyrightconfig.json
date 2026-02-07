@@ -1,0 +1,47 @@
+{
+  "include": [
+    "App/PyUI/main-ui"
+  ],
+  "extraPaths": [
+    "./App/PyUI/main-ui"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.git",
+    "**/.mypy_cache",
+    "**/.pytest_cache",
+    "**/.venv",
+    "**/venv",
+    "**/site-packages",
+    "**/dist-packages",
+    ".github",
+    ".tmp_update",
+    "App/PyUI/boxartdb",
+    "BIOS",
+    "Emu",
+    "Icons",
+    "miyoo",
+    "miyoo355",
+    "Persistent",
+    "RetroArch",
+    "Roms",
+    "Saves",
+    "Themes",
+    "trimui",
+    "spruce/flip/lib/python3.10",
+    "spruce/bin/python/lib/python3.10",
+    "docs",
+    "lang",
+    "misc",
+    "miyoo_mini_flip",
+    "muOS",
+    "onionOS"
+  ],
+  "pythonVersion": "3.10",
+  "pythonPlatform": "Linux",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportMissingTypeStubs": false,
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}
