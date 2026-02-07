@@ -85,5 +85,5 @@ If TypeGuard functionality is desired for future development, the project would 
 ## Related Documentation
 
 For more information about the actual changes made in PR #3, see:
-- [Pull Request #3](https://github.com/CatalyticArkun/spruceOS/pull/3)
+- Pull Request #3: "Convert create-nightly workflow from releases to artifacts"
 - [.github/workflows/create-nightly.yml](/.github/workflows/create-nightly.yml)
