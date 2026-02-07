@@ -13,6 +13,7 @@ from menus.games.utils.rom_info import RomInfo
 from menus.settings.button_remapper import ButtonRemapper
 import sdl2
 from utils.logger import PyUiLogger
+from devices.miyoo.miyoo_games_file_parser import MiyooGamesFileParser
 
 from devices.device_common import DeviceCommon
 
@@ -20,6 +21,11 @@ from devices.device_common import DeviceCommon
 class MiyooDevice(DeviceCommon):
     OUTPUT_MIXER = 2
     SOUND_DISABLED = 0
+    sdl_button_to_input: dict[int, ControllerInput]
+    unknown_axis_ranges: dict[int, tuple[int, int]]
+    unknown_axis_stats: dict[int, tuple[int, int]]
+    sdl_axis_names: dict[int, str]
+    miyoo_games_file_parser: MiyooGamesFileParser
 
     def __init__(self):
         self.button_remapper = ButtonRemapper(self.system_config)
@@ -81,13 +87,13 @@ class MiyooDevice(DeviceCommon):
         mapping = self.sdl_button_to_input.get(sdl_input, ControllerInput.UNKNOWN)
         if(ControllerInput.UNKNOWN == mapping):
             PyUiLogger.get_logger().error(f"Unknown input {sdl_input}")
-        return mapping
+        return self.button_remapper.get_mappping(mapping)
 
     def map_analog_input(self, sdl_axis, sdl_value):
         if sdl_axis == 5 and sdl_value == 32767:
-            return ControllerInput.R2
+            return self.button_remapper.get_mappping(ControllerInput.R2)
         elif sdl_axis == 4 and sdl_value == 32767:
-            return ControllerInput.L2
+            return self.button_remapper.get_mappping(ControllerInput.L2)
         else:
             # Update min/max range
             if sdl_axis not in self.unknown_axis_ranges:
@@ -133,11 +139,11 @@ class MiyooDevice(DeviceCommon):
 
     def map_key(self, key_code):
         if(116 == key_code):
-            return ControllerInput.POWER_BUTTON
+            return self.button_remapper.get_mappping(ControllerInput.POWER_BUTTON)
         if(115 == key_code):
-            return ControllerInput.VOLUME_UP
+            return self.button_remapper.get_mappping(ControllerInput.VOLUME_UP)
         elif(114 == key_code):
-            return ControllerInput.VOLUME_DOWN
+            return self.button_remapper.get_mappping(ControllerInput.VOLUME_DOWN)
         else:
             PyUiLogger.get_logger().debug(f"Unrecognized keycode {key_code}")
             return None
@@ -278,6 +284,3 @@ class MiyooDevice(DeviceCommon):
     
     def get_device_specific_about_info_entries(self):
         return []
-
-    def check_for_button_remap(self, input):
-        return self.button_remapper.get_mappping(input)

@@ -12,6 +12,7 @@ from devices.charge.charge_status import ChargeStatus
 import os
 from devices.device_common import DeviceCommon
 from devices.miyoo_trim_common import MiyooTrimCommon
+from devices.miyoo.miyoo_games_file_parser import MiyooGamesFileParser
 from devices.utils.process_runner import ProcessRunner
 from devices.wifi.wifi_connection_quality_info import WiFiConnectionQualityInfo
 from display.display import Display
@@ -25,6 +26,8 @@ from utils.logger import PyUiLogger
 from utils.py_ui_config import PyUiConfig
 
 class TrimUIDevice(DeviceCommon):
+    sdl_button_to_input: dict[int, ControllerInput]
+    miyoo_games_file_parser: MiyooGamesFileParser
     
     def __init__(self):
         self.button_remapper = ButtonRemapper(self.system_config)
@@ -128,15 +131,15 @@ class TrimUIDevice(DeviceCommon):
         mapping = self.sdl_button_to_input.get(sdl_input, ControllerInput.UNKNOWN)
         if(ControllerInput.UNKNOWN == mapping):
             PyUiLogger.get_logger().error(f"Unknown input {sdl_input}")
-        return mapping
+        return self.button_remapper.get_mappping(mapping)
     
     def map_key(self, key_code):
         if(116 == key_code):
-            return ControllerInput.POWER_BUTTON
+            return self.button_remapper.get_mappping(ControllerInput.POWER_BUTTON)
         if(115 == key_code):
-            return ControllerInput.VOLUME_UP
+            return self.button_remapper.get_mappping(ControllerInput.VOLUME_UP)
         elif(114 == key_code):
-            return ControllerInput.VOLUME_DOWN
+            return self.button_remapper.get_mappping(ControllerInput.VOLUME_DOWN)
         else:
             PyUiLogger.get_logger().debug(f"Unrecognized keycode {key_code}")
             return None
@@ -302,16 +305,16 @@ class TrimUIDevice(DeviceCommon):
     def get_wpa_supplicant_conf_path(self):
         return PyUiConfig.get_wpa_supplicant_conf_file_location("/userdata/cfg/wpa_supplicant.conf")
     
-    def supports_brightness_calibration():
+    def supports_brightness_calibration(self):
         return True
 
-    def supports_contrast_calibration():
+    def supports_contrast_calibration(self):
         return True
 
-    def supports_saturation_calibration():
+    def supports_saturation_calibration(self):
         return True
 
-    def supports_hue_calibration():
+    def supports_hue_calibration(self):
         return True
 
     def get_save_state_image(self, rom_info: RomInfo):
@@ -360,7 +363,7 @@ class TrimUIDevice(DeviceCommon):
                 check=True
             )
         except Exception as e:
-            PyUiLogger.get_logger.error(f"Failed to update /etc/localtime: {e}")
+            PyUiLogger.get_logger().error(f"Failed to update /etc/localtime: {e}")
 
         # Update environment for current process
         os.environ["TZ"] = timezone
@@ -394,6 +397,3 @@ class TrimUIDevice(DeviceCommon):
             Display.clear_cache()
             self.last_cache_clear = 0
 
-    def check_for_button_remap(self, input):
-        return self.button_remapper.get_mappping(input)
-    
