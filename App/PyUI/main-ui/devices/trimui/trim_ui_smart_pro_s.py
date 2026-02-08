@@ -230,7 +230,11 @@ class TrimUISmartProS(TrimUIDevice):
         match = re.search(r'values=(\d+)(?:,\d+)?', result.stdout)
         if match:
             volume = int(match.group(1))
-            return math.ceil(volume * 100/255)
+            percent = math.ceil(volume * 100/255)
+            PyUiLogger.get_logger().info(
+                f"[get_real_volume] raw_value={volume} -> percent={percent}"
+            )
+            return percent
         PyUiLogger.get_logger().warning(
             f"get_real_volume: unable to parse output: {result.stdout}"
         )
