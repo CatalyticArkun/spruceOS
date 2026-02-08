@@ -2,6 +2,7 @@ import subprocess
 import json
 import os
 import math
+import re
 from pathlib import Path
 import threading
 import time
@@ -63,21 +64,51 @@ class TrimUISmartProS(TrimUIDevice):
                 power_key_polling_thread.start()
                 
             config_volume = self.system_config.get_volume()
-            self._set_volume(config_volume)
+            PyUiLogger.get_logger().info(
+                f"[init] system_config_vol={config_volume}, mainui_volume={self.mainui_volume}, "
+                f"real_volume={self.get_real_volume()}"
+            )
+            self._set_volume(self._system_to_ui_volume(config_volume))
         super().__init__()
 
     def startup_init(self, include_wifi=True):
         self._set_lumination_to_config()
         config_volume = self.system_config.get_volume()
-        self._set_volume(config_volume)
+        PyUiLogger.get_logger().info(
+            f"[startup_init] system_config_vol={config_volume}, mainui_volume={self.mainui_volume}, "
+            f"real_volume={self.get_real_volume()}"
+        )
+        self._set_volume(self._system_to_ui_volume(config_volume))
+
+    def _system_to_ui_volume(self, system_volume):
+        if(system_volume < 0):
+            system_volume = 0
+        elif(system_volume > 100):
+            system_volume = 100
+        return int(system_volume // 5)
+
+    def _ui_to_system_volume(self, ui_volume):
+        if(ui_volume < 0):
+            ui_volume = 0
+        elif(ui_volume > 20):
+            ui_volume = 20
+        return int(ui_volume * 5)
 
     def _set_volume(self, user_volume):
         from display.display import Display
+        PyUiLogger.get_logger().info(
+            f"[_set_volume] input ui_volume={user_volume}, mainui_volume={self.mainui_volume}, "
+            f"system_config_vol={self.system_config.get_volume()}, real_volume={self.get_real_volume()}"
+        )
         if(user_volume < 0):
             user_volume = 0
-        elif(user_volume > 100):
-            user_volume = 100
-        volume = math.ceil(user_volume * 255//100)
+        elif(user_volume > 20):
+            user_volume = 20
+        system_volume = self._ui_to_system_volume(user_volume)
+        volume = math.ceil(system_volume * 255//100)
+        PyUiLogger.get_logger().info(
+            f"[_set_volume] clamped ui_volume={user_volume}, system_volume={system_volume}, amixer_value={volume}"
+        )
 
         # Prefer direct mixer control, fallback to alternate control if needed.
         try:
@@ -86,6 +117,7 @@ class TrimUISmartProS(TrimUIDevice):
                 check=True
             )
         except Exception as e:
+            PyUiLogger.get_logger().warning(f"[_set_volume] Soft Volume Master failed: {e}")
             try:
                 ProcessRunner.run(
                     ["amixer", "cset", "numid=17", str(int(volume))],
@@ -96,10 +128,14 @@ class TrimUISmartProS(TrimUIDevice):
 
         # Update local config and UI.
         self.system_config.reload_config()
-        self.system_config.set_volume(user_volume)
+        self.system_config.set_volume(system_volume)
         self.system_config.save_config()
-        self.mainui_volume = user_volume // 5
-        Display.volume_changed(user_volume)
+        self.mainui_volume = user_volume
+        Display.volume_changed(system_volume)
+        PyUiLogger.get_logger().info(
+            f"[_set_volume] after set: system_config_vol={self.system_config.get_volume()}, "
+            f"mainui_volume={self.mainui_volume}, real_volume={self.get_real_volume()}"
+        )
 
         # Keep stock config in sync if present.
         try:
@@ -107,14 +143,14 @@ class TrimUISmartProS(TrimUIDevice):
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                data["vol"] = user_volume // 5
+                data["vol"] = user_volume
                 data["mute"] = 1 if user_volume == 0 else 0
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=4)
         except Exception as e:
             PyUiLogger.get_logger().warning(f"Failed to update stock volume config: {e}")
 
-        return user_volume
+        return system_volume
 
     #Untested
     @throttle.limit_refresh(5)
@@ -185,6 +221,15 @@ class TrimUISmartProS(TrimUIDevice):
             return self.mainui_volume * 5
         except:
             return 0
+
+    def get_real_volume(self):
+        result = subprocess.run(['amixer', 'cget', 'numid=17'], capture_output=True, text=True)
+        match = re.search(r'values=(\d+),\d+', result.stdout)
+        if match:
+            volume = int(match.group(1))
+            return math.ceil(volume * 100/255)
+        PyUiLogger.get_logger().warning(f"get_real_volume: unable to parse output: {result.stdout}")
+        return 0
         
     def on_mainui_config_change(self):
         path = TrimUISmartProS.TRIMUI_STOCK_CONFIG_LOCATION
@@ -198,8 +243,13 @@ class TrimUISmartProS(TrimUIDevice):
 
             old_volume = self.mainui_volume
             self.mainui_volume = data.get("vol")
+            PyUiLogger.get_logger().info(
+                f"[on_mainui_config_change] old_volume={old_volume}, new_volume={self.mainui_volume}, "
+                f"system_config_vol={self.system_config.get_volume()}, real_volume={self.get_real_volume()}, "
+                f"ui_to_system={self._ui_to_system_volume(self.mainui_volume)}"
+            )
             if(old_volume != self.mainui_volume):
-                Display.volume_changed(self.mainui_volume * 5)
+                Display.volume_changed(self._ui_to_system_volume(self.mainui_volume))
 
         except Exception as e:
             PyUiLogger.get_logger().warning(f"Error reading {path}: {e}")
@@ -214,6 +264,11 @@ class TrimUISmartProS(TrimUIDevice):
             PyUiLogger.get_logger().error(f"Error setting backlight: {e}")
 
     def volume_up(self):
+        PyUiLogger.get_logger().info(
+            f"[volume_up] sendevent path=/dev/input/event0 keycode=115 "
+            f"mainui_volume={self.mainui_volume}, system_config_vol={self.system_config.get_volume()}, "
+            f"real_volume={self.get_real_volume()}"
+        )
         try:
             proc = subprocess.Popen(
                 ["sendevent", "/dev/input/event0"],
@@ -228,12 +283,18 @@ class TrimUISmartProS(TrimUIDevice):
             proc.stdin.close()
 
             proc.wait()
+            PyUiLogger.get_logger().info("[volume_up] sendevent completed")
         except Exception as e:
             PyUiLogger.get_logger().exception(
                 f"Failed to set volume via input events: {e}"
             )
 
     def volume_down(self):
+        PyUiLogger.get_logger().info(
+            f"[volume_down] sendevent path=/dev/input/event0 keycode=114 "
+            f"mainui_volume={self.mainui_volume}, system_config_vol={self.system_config.get_volume()}, "
+            f"real_volume={self.get_real_volume()}"
+        )
         try:
             proc = subprocess.Popen(
                 ["sendevent", "/dev/input/event0"],
@@ -248,20 +309,32 @@ class TrimUISmartProS(TrimUIDevice):
             proc.stdin.close()
 
             proc.wait()
+            PyUiLogger.get_logger().info("[volume_down] sendevent completed")
         except Exception as e:
             PyUiLogger.get_logger().exception(
                 f"Failed to set volume via input events: {e}"
             )
 
     def change_volume(self, amount):
-        PyUiLogger.get_logger().debug(f"Changing volume by {amount}")
+        PyUiLogger.get_logger().info(
+            f"[change_volume] amount={amount}, mainui_volume={self.mainui_volume}, "
+            f"system_config_vol={self.system_config.get_volume()}, real_volume={self.get_real_volume()}"
+        )
         self.system_config.reload_config()
-        volume = self.get_volume() + amount
-        if(volume < 0):
-            volume = 0
-        elif(volume > 100):
-            volume = 100
-        self._set_volume(volume)
+        ui_volume = self._system_to_ui_volume(self.get_volume())
+        PyUiLogger.get_logger().info(
+            f"[change_volume] ui_volume(before)={ui_volume} from system={self.get_volume()}"
+        )
+        if(amount > 0):
+            ui_volume += 1
+        elif(amount < 0):
+            ui_volume -= 1
+        if(ui_volume < 0):
+            ui_volume = 0
+        elif(ui_volume > 20):
+            ui_volume = 20
+        PyUiLogger.get_logger().info(f"[change_volume] ui_volume(after)={ui_volume}")
+        self._set_volume(ui_volume)
         sleep(0.05)
 
     def enable_bluetooth(self):
