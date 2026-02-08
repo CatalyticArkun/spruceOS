@@ -45,7 +45,7 @@ class TrimUISmartProS(TrimUIDevice):
             ConfigCopier.ensure_config(TrimUISmartProS.TRIMUI_STOCK_CONFIG_LOCATION, trim_stock_json_file)
 
             self.mainui_config_thread, self.mainui_config_thread_stop_event = FileWatcher().start_file_watcher(
-                TrimUISmartProS.TRIMUI_STOCK_CONFIG_LOCATION, self.on_mainui_config_change, interval=0.2, repeat_trigger_for_mtime_granularity_issues=True)
+                TrimUISmartProS.TRIMUI_STOCK_CONFIG_LOCATION, self.on_mainui_config_change, interval=0.05, repeat_trigger_for_mtime_granularity_issues=True)
 
             self.miyoo_games_file_parser = MiyooGamesFileParser()        
             self.ensure_wpa_supplicant_conf()
@@ -304,7 +304,6 @@ class TrimUISmartProS(TrimUIDevice):
         elif(ui_volume > 20):
             ui_volume = 20
         self._set_volume(ui_volume)
-        sleep(0.05)
 
     def enable_bluetooth(self):
         if(not self.is_bluetooth_enabled()):
