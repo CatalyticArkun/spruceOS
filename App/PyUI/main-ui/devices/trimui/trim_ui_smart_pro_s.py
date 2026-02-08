@@ -224,11 +224,16 @@ class TrimUISmartProS(TrimUIDevice):
 
     def get_real_volume(self):
         result = subprocess.run(['amixer', 'cget', 'numid=17'], capture_output=True, text=True)
-        match = re.search(r'values=(\d+),\d+', result.stdout)
+        PyUiLogger.get_logger().info(
+            f"[get_real_volume] amixer cget numid=17 stdout: {result.stdout.strip()}"
+        )
+        match = re.search(r'values=(\d+)(?:,\d+)?', result.stdout)
         if match:
             volume = int(match.group(1))
             return math.ceil(volume * 100/255)
-        PyUiLogger.get_logger().warning(f"get_real_volume: unable to parse output: {result.stdout}")
+        PyUiLogger.get_logger().warning(
+            f"get_real_volume: unable to parse output: {result.stdout}"
+        )
         return 0
         
     def on_mainui_config_change(self):
@@ -248,6 +253,18 @@ class TrimUISmartProS(TrimUIDevice):
                 f"system_config_vol={self.system_config.get_volume()}, real_volume={self.get_real_volume()}, "
                 f"ui_to_system={self._ui_to_system_volume(self.mainui_volume)}"
             )
+            try:
+                system_volume = self._ui_to_system_volume(self.mainui_volume)
+                self.system_config.reload_config()
+                self.system_config.set_volume(system_volume)
+                self.system_config.save_config()
+                PyUiLogger.get_logger().info(
+                    f"[on_mainui_config_change] synced system_config_vol={self.system_config.get_volume()}"
+                )
+            except Exception as e:
+                PyUiLogger.get_logger().warning(
+                    f"[on_mainui_config_change] failed syncing system_config: {e}"
+                )
             if(old_volume != self.mainui_volume):
                 Display.volume_changed(self._ui_to_system_volume(self.mainui_volume))
 
