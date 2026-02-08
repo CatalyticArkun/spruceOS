@@ -28,9 +28,10 @@ class SystemConfig:
                     return
                 except (json.JSONDecodeError, OSError) as e:
                     last_err = e
-                    PyUiLogger.get_logger().warning(
-                        f"reload_config failed (attempt {attempt}/{max_retries}): {e}"
-                    )
+                    if attempt == max_retries:
+                        PyUiLogger.get_logger().warning(
+                            f"reload_config failed (attempt {attempt}/{max_retries}): {e}"
+                        )
                     time.sleep(retry_delay)
 
             PyUiLogger.get_logger().error(
