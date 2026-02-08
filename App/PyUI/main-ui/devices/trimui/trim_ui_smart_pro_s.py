@@ -1,6 +1,7 @@
 import subprocess
 import json
 import os
+import math
 from pathlib import Path
 import threading
 import time
@@ -71,8 +72,49 @@ class TrimUISmartProS(TrimUIDevice):
         self._set_volume(config_volume)
 
     def _set_volume(self, user_volume):
-        # Investigate sending volume key
-        pass
+        from display.display import Display
+        if(user_volume < 0):
+            user_volume = 0
+        elif(user_volume > 100):
+            user_volume = 100
+        volume = math.ceil(user_volume * 255//100)
+
+        # Prefer direct mixer control, fallback to alternate control if needed.
+        try:
+            ProcessRunner.run(
+                ["amixer", "set", f"'Soft Volume Master'", str(int(volume))],
+                check=True
+            )
+        except Exception as e:
+            try:
+                ProcessRunner.run(
+                    ["amixer", "cset", "numid=17", str(int(volume))],
+                    check=True
+                )
+            except Exception as e2:
+                PyUiLogger.get_logger().error(f"Failed to set volume: {e}; fallback failed: {e2}")
+
+        # Update local config and UI.
+        self.system_config.reload_config()
+        self.system_config.set_volume(user_volume)
+        self.system_config.save_config()
+        self.mainui_volume = user_volume // 5
+        Display.volume_changed(user_volume)
+
+        # Keep stock config in sync if present.
+        try:
+            path = TrimUISmartProS.TRIMUI_STOCK_CONFIG_LOCATION
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                data["vol"] = user_volume // 5
+                data["mute"] = 1 if user_volume == 0 else 0
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=4)
+        except Exception as e:
+            PyUiLogger.get_logger().warning(f"Failed to update stock volume config: {e}")
+
+        return user_volume
 
     #Untested
     @throttle.limit_refresh(5)
@@ -219,12 +261,8 @@ class TrimUISmartProS(TrimUIDevice):
             volume = 0
         elif(volume > 100):
             volume = 100
-        if(amount > 0):
-            self.volume_up()
-        else:
-            self.volume_down()
-        sleep(0.1)
-        self.on_mainui_config_change()
+        self._set_volume(volume)
+        sleep(0.05)
 
     def enable_bluetooth(self):
         if(not self.is_bluetooth_enabled()):
