@@ -63,21 +63,36 @@ class TrimUISmartProS(TrimUIDevice):
                 power_key_polling_thread.start()
                 
             config_volume = self.system_config.get_volume()
-            self._set_volume(config_volume)
+            self._set_volume(self._system_to_ui_volume(config_volume))
         super().__init__()
 
     def startup_init(self, include_wifi=True):
         self._set_lumination_to_config()
         config_volume = self.system_config.get_volume()
-        self._set_volume(config_volume)
+        self._set_volume(self._system_to_ui_volume(config_volume))
+
+    def _system_to_ui_volume(self, system_volume):
+        if(system_volume < 0):
+            system_volume = 0
+        elif(system_volume > 100):
+            system_volume = 100
+        return int(system_volume // 5)
+
+    def _ui_to_system_volume(self, ui_volume):
+        if(ui_volume < 0):
+            ui_volume = 0
+        elif(ui_volume > 20):
+            ui_volume = 20
+        return int(ui_volume * 5)
 
     def _set_volume(self, user_volume):
         from display.display import Display
         if(user_volume < 0):
             user_volume = 0
-        elif(user_volume > 100):
-            user_volume = 100
-        volume = math.ceil(user_volume * 255//100)
+        elif(user_volume > 20):
+            user_volume = 20
+        system_volume = self._ui_to_system_volume(user_volume)
+        volume = math.ceil(system_volume * 255//100)
 
         # Prefer direct mixer control, fallback to alternate control if needed.
         try:
@@ -96,10 +111,10 @@ class TrimUISmartProS(TrimUIDevice):
 
         # Update local config and UI.
         self.system_config.reload_config()
-        self.system_config.set_volume(user_volume)
+        self.system_config.set_volume(system_volume)
         self.system_config.save_config()
-        self.mainui_volume = user_volume // 5
-        Display.volume_changed(user_volume)
+        self.mainui_volume = user_volume
+        Display.volume_changed(system_volume)
 
         # Keep stock config in sync if present.
         try:
@@ -107,14 +122,14 @@ class TrimUISmartProS(TrimUIDevice):
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                data["vol"] = user_volume // 5
+                data["vol"] = user_volume
                 data["mute"] = 1 if user_volume == 0 else 0
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=4)
         except Exception as e:
             PyUiLogger.get_logger().warning(f"Failed to update stock volume config: {e}")
 
-        return user_volume
+        return system_volume
 
     #Untested
     @throttle.limit_refresh(5)
@@ -199,7 +214,7 @@ class TrimUISmartProS(TrimUIDevice):
             old_volume = self.mainui_volume
             self.mainui_volume = data.get("vol")
             if(old_volume != self.mainui_volume):
-                Display.volume_changed(self.mainui_volume * 5)
+                Display.volume_changed(self._ui_to_system_volume(self.mainui_volume))
 
         except Exception as e:
             PyUiLogger.get_logger().warning(f"Error reading {path}: {e}")
@@ -256,12 +271,16 @@ class TrimUISmartProS(TrimUIDevice):
     def change_volume(self, amount):
         PyUiLogger.get_logger().debug(f"Changing volume by {amount}")
         self.system_config.reload_config()
-        volume = self.get_volume() + amount
-        if(volume < 0):
-            volume = 0
-        elif(volume > 100):
-            volume = 100
-        self._set_volume(volume)
+        ui_volume = self._system_to_ui_volume(self.get_volume())
+        if(amount > 0):
+            ui_volume += 1
+        elif(amount < 0):
+            ui_volume -= 1
+        if(ui_volume < 0):
+            ui_volume = 0
+        elif(ui_volume > 20):
+            ui_volume = 20
+        self._set_volume(ui_volume)
         sleep(0.05)
 
     def enable_bluetooth(self):
