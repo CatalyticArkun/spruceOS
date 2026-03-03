@@ -1,0 +1,5 @@
+[    2.000000] usb 1-1: disconnect, device number 2
+[    3.100000] wlan0: deauthenticating from aa:bb:cc:dd:ee by local choice
+[    4.200000] mma alloc fail size=4096
+[    5.300000] EXT4-fs error (device mmcblk0p1): ext4_find_entry: inode #2
+[    6.400000] BUG: unable to handle kernel NULL pointer dereference

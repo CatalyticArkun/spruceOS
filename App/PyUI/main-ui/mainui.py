@@ -4,6 +4,7 @@ from pathlib import Path
 import signal
 import sys
 import threading
+import subprocess
 from devices.device import Device
 from devices.miyoo.mini.miyoo_mini_flip_specific_model_variables import MIYOO_MINI_FLIP_VARIABLES, MIYOO_MINI_PLUS, MIYOO_MINI_V1_V2_V3_VARIABLES, MIYOO_MINI_V4_VARIABLES
 from menus.app.hidden_apps_manager import AppsManager
@@ -197,6 +198,17 @@ def check_for_startup_init_only(args):
         Device.get_device().startup_init(include_wifi=False)
         sys.exit(0)
 
+
+
+def trigger_post_menu_diagnostics_hook():
+    hook_path = "/mnt/SDCARD/spruce/scripts/diagnostics/request_post_menu_run.sh"
+    if os.path.exists(hook_path):
+        try:
+            subprocess.Popen(["/bin/sh", hook_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            PyUiLogger.get_logger().info("Triggered post-menu diagnostics hook")
+        except Exception:
+            PyUiLogger.get_logger().exception("Failed to trigger post-menu diagnostics hook")
+
 def main():
     args = parse_arguments()
     PyUiLogger.init(args.logDir, "PyUI")
@@ -250,6 +262,7 @@ def main():
     start_background_threads()
     keep_running = True
     PyUiLogger.get_logger().info("Entering main loop")
+    trigger_post_menu_diagnostics_hook()
     while(keep_running):
         try:
             main_menu.run_main_menu_selection()
