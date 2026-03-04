@@ -2,9 +2,11 @@
 
 ## Layout
 - `spruce/scripts/diagnostics/runner.sh` orchestrates phase execution and resume state.
-- `checks.d/` for always-on read-only detectors.
+- `checks.d/` for spruce-native always-on read-only detectors.
+- `mustard_checks.d/` for MustardOS-parity checks kept in a dedicated category; overlapping memory-pressure logic is merged into spruce-native `M-15`.
 - `verifiers.d/` for side-effect tests gated by flags.
 - `retired_checks.d/` optional legacy detectors.
+- `collect_mustard_compat.sh` captures Mustard-style system snapshots into `raw/mustard_compat/` (safe/default subset in Phase A, extra process sampling in Phase B).
 - `curate_logs.sh` + `patterns.conf` produce deterministic signature extracts.
 
 ## Startup Integration

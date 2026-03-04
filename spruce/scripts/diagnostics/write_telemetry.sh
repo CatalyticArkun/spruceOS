@@ -17,7 +17,7 @@ BUNDLE_VERSION=$(get_bundle_version)
 TS=$(timestamp_utc)
 
 SIG_JSON=$(awk -F'|' 'BEGIN{printf "["} {if (NR>1) printf ","; printf "{\"key\":\"%s\",\"tier\":\"%s\",\"category\":\"%s\",\"count\":%s}",$1,$2,$3,$4} END{printf "]"}' "$RUN_DIR/curated/signature_counts.txt" 2>/dev/null || echo "[]")
-RES_JSON=$(awk 'BEGIN{printf "["} /^RESULT / {if (n++) printf ","; id="";v="";s="";c="";e=""; for(i=1;i<=NF;i++){split($i,a,"="); if(a[1]=="id")id=a[2]; else if(a[1]=="verdict")v=a[2]; else if(a[1]=="severity")s=a[2]; else if(a[1]=="confidence")c=a[2]; else if(a[1]=="evidence")e=a[2];} printf "{\"id\":\"%s\",\"verdict\":\"%s\",\"severity\":\"%s\",\"confidence\":\"%s\",\"evidence\":\"%s\"}",id,v,s,c,e} END{printf "]"}' "$RUN_DIR/results/check_results.txt" 2>/dev/null || echo "[]")
+RES_JSON=$(cat "$RUN_DIR/results/check_results.txt" "$RUN_DIR/results/mustard_check_results.txt" 2>/dev/null | awk 'BEGIN{printf "["} /^RESULT / {if (n++) printf ","; id="";v="";s="";c="";e=""; for(i=1;i<=NF;i++){split($i,a,"="); if(a[1]=="id")id=a[2]; else if(a[1]=="verdict")v=a[2]; else if(a[1]=="severity")s=a[2]; else if(a[1]=="confidence")c=a[2]; else if(a[1]=="evidence")e=a[2];} printf "{\"id\":\"%s\",\"verdict\":\"%s\",\"severity\":\"%s\",\"confidence\":\"%s\",\"evidence\":\"%s\"}",id,v,s,c,e} END{printf "]"}')
 
 cat > "$OUT" <<JSON
 {
