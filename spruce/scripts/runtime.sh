@@ -48,6 +48,14 @@ fi
 
 launch_startup_watchdogs
 
+# run automation-first diagnostics in background only when explicitly enabled
+if flag_check "RUN_STARTTIME_DIAGNOSTICS"; then
+    /mnt/SDCARD/spruce/scripts/diagnostics/runner.sh >/dev/null 2>&1 &
+    log_message "Start-time diagnostics enabled (RUN_STARTTIME_DIAGNOSTICS)."
+else
+    log_message "Start-time diagnostics disabled (RUN_STARTTIME_DIAGNOSTICS not set)."
+fi
+
 # check whether to auto-resume into a game
 if flag_check "save_active"; then
     auto_resume_game
