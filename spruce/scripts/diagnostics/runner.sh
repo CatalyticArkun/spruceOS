@@ -77,6 +77,19 @@ run_verifiers() {
     "$SCRIPT_DIR/run_verifiers.sh" "$RUN_DIR"
 }
 
+capture_power_traces() {
+    mkdir -p "$RUN_DIR/raw" "$RUN_DIR/summary"
+    if [ -f "$LOG_ROOT/power/events.jsonl" ]; then
+        tail -n 400 "$LOG_ROOT/power/events.jsonl" > "$RUN_DIR/raw/power_trace.events.jsonl"
+    fi
+    if [ -f "$LOG_ROOT/power/summary.txt" ]; then
+        tail -n 200 "$LOG_ROOT/power/summary.txt" > "$RUN_DIR/summary/power_trace.summary.txt"
+    fi
+    if [ -f "$LOG_ROOT/power/state.env" ]; then
+        cp "$LOG_ROOT/power/state.env" "$RUN_DIR/summary/power_trace.state.env"
+    fi
+}
+
 phase_b_exports() {
     dest="$RUN_DIR/phase_b"
     mkdir -p "$dest"
@@ -131,18 +144,19 @@ run_step() {
 run_step "01_identity" capture_identity
 run_step "02_capture_logs" capture_logs
 run_step "03_mustard_compat" collect_mustard_compat
-run_step "04_curation" run_curation
-run_step "05_checks" run_checks
-run_step "06_mustard_checks" run_mustard_checks
-run_step "07_verifiers" run_verifiers
+run_step "04_power_trace" capture_power_traces
+run_step "05_curation" run_curation
+run_step "06_checks" run_checks
+run_step "07_mustard_checks" run_mustard_checks
+run_step "08_verifiers" run_verifiers
 
 if [ "$PHASE" = "B" ]; then
-    run_step "08_phase_b" phase_b_exports
+    run_step "09_phase_b" phase_b_exports
 fi
 
-run_step "09_recommend" write_recommendations
-run_step "10_telemetry" write_telemetry
-run_step "11_bundle" bundle_outputs
+run_step "10_recommend" write_recommendations
+run_step "11_telemetry" write_telemetry
+run_step "12_bundle" bundle_outputs
 
 atomic_write "$STATE_FILE" \
 "run_id=$RUN_ID" \

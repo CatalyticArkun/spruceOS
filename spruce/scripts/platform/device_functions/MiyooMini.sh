@@ -367,3 +367,10 @@ device_system_handles_sdcard_unmount() {
     # return non-zero = false
     return 0
 }
+device_power_trace_capabilities() {
+    echo "sleep_signal=pseudo_or_hybrid wake_source=power_or_lid lid_sensor=optional rtc_alarm=limited"
+}
+
+device_power_trace_notes() {
+    echo "sleep implemented via process pause/screen blank/cpuclock; not always kernel suspend"
+}

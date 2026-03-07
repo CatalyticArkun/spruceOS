@@ -19,6 +19,9 @@ rotate_logs
 log_file="/mnt/SDCARD/Saves/spruce/spruce.log" # Resetting log file location
 log_message "---------Starting up---------"
 
+power_trace_boot_reconcile_pending
+power_trace_emit "BOOT_BEGIN" "AUTO" "BOOTING" "BOOTING" "runtime_start" "runtime.sh:startup" "runtime startup sequence entered" "" "" "" "$(flag_check save_active && echo true || echo false)" "" ""
+
 run_sd_card_fix_if_triggered    # do this before anything else
 set_performance
 device_init
@@ -75,6 +78,8 @@ set_smart
 set_up_boot_action
 
 flag_remove "save_active"
+
+power_trace_emit "BOOT_COMPLETE" "AUTO" "RUNNING" "RUNNING" "runtime_ready" "runtime.sh:startup" "startup tasks complete; entering principal loop" "" "" "" "" "" ""
 
 # start main loop
 log_message "Starting main loop"
