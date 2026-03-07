@@ -9,7 +9,7 @@ case "$PLATFORM" in
         STORAGE_DEVICE="/dev/mmcblk0p1"
         MOUNT_POINT="/mnt/SDCARD"
         USB_GADGET_PATH="/sys/devices/platform/sunxi_usb_udc/gadget"
-        LUN_PATH="$GADGET_PATH/lun0"
+        LUN_PATH="$USB_GADGET_PATH/lun0"
         LUN_FILE="$LUN_PATH/file"
         ;;
     "Brick" | "SmartPro")
@@ -153,9 +153,9 @@ configure_usb_gadget() {
             ;;
         "Pixel2")
             mkdir $USB_GADGET_PATH -m 0770
-            echo "0x2207" > $USB_GADGET_PATH/rockchip/idVendor
-            echo "0x0000" > $USB_GADGET_PATH/rockchip/idProduct
-            echo "0x0200" > $USB_GADGET_PATH/rockchip/bcdUSB
+            echo "0x2207" > $USB_GADGET_PATH/idVendor
+            echo "0x0000" > $USB_GADGET_PATH/idProduct
+            echo "0x0200" > $USB_GADGET_PATH/bcdUSB
             mkdir $USB_GADGET_PATH/strings/0x409 -m 0770
             echo “0123456789ABCDEF” > $USB_GADGET_PATH/strings/0x409/serialnumber
             echo “GameKiddy” > $USB_GADGET_PATH/strings/0x409/manufacturer
@@ -225,6 +225,10 @@ if [ "$(device_get_charging_status)" = "Discharging" ]; then
     sleep 2
     exit 0
 fi
+
+# Disable idle/shutdown timer while in USB mode (device reboots on exit, so no need to restart)
+killall -q idlemon 2>/dev/null
+killall -q idlemon_mm.sh 2>/dev/null
 
 log_and_display_message "Connecting USB Mass Storage Mode..."
 configure_usb_gadget
