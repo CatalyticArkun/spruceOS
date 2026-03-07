@@ -12,7 +12,18 @@
       "devices": [
         "TRIMUI_BRICK",
         "TRIMUI_SMART_PRO",
-        "TRIMUI_SMART_PRO_S"
+        "TRIMUI_SMART_PRO_S",
+        "MIYOO_FLIP"
+      ]
+    },
+    {
+      "name": "Scan ScummVM Games",
+      "launch": "/mnt/SDCARD/Emu/SCUMMVM/scan_scummvm_game.sh",
+      "devices": [
+        "TRIMUI_BRICK",
+        "TRIMUI_SMART_PRO",
+        "TRIMUI_SMART_PRO_S",
+        "MIYOO_FLIP"
       ]
     }
   ],
@@ -27,17 +38,6 @@
       "selected": "Smart",
       "overrides": {}
     },
-      "Emulator_Flip": {
-          "display": "Retroarch Core",
-          "options": [
-              "scummvm"
-          ],
-          "devices": [
-              "MIYOO_FLIP"
-          ],
-          "selected": "scummvm",
-          "overrides": {}
-      },
       "Emulator_Pixel2": {
           "display": "Retroarch Core",
           "options": [
@@ -58,7 +58,8 @@
           "devices": [
               "TRIMUI_BRICK",
               "TRIMUI_SMART_PRO",
-              "TRIMUI_SMART_PRO_S"
+              "TRIMUI_SMART_PRO_S",
+              "MIYOO_FLIP"
           ],
           "selected": "scummvm-standalone",
           "overrides": {}
