@@ -41,6 +41,8 @@ power_button_pressed() {
     fi
 }
 
+WAKE_TRIGGERED_BY_POWER=false
+
 # Clean up on exit
 trap 'kill $GET_EVENT_PID 2>/dev/null; rm -f "$POWER_BUTTON_PIPE"' EXIT
 
@@ -73,6 +75,7 @@ trigger_sleep() {
     log_message "Entering sleep"
     lid_ever_closed=false
     sleep_exited=false
+    WAKE_TRIGGERED_BY_POWER=false
     # Get the lid powerdown timeout
     local IDLE_TIMEOUT
     IDLE_TIMEOUT=$(get_shutdown_timer)
@@ -119,6 +122,7 @@ trigger_sleep() {
             elif power_button_pressed; then
                 if [ "$current_lid_state" = "1" ]; then
                     log_message "Power button pressed, exiting pseudosleep"
+                    WAKE_TRIGGERED_BY_POWER=true
                     sleep_exited=true 
                     break
                 else
@@ -184,6 +188,16 @@ set_volume "$VOLUME_LV"
 
 unpause_emulators
 power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "resume_complete" "sleep_helper.sh:main" "post-wake restore complete" "" "" "" "" "" ""
+
+# On pseudo-sleep wake by power button, ignore one replayed/delayed power event.
+# This protects against the wake press being delivered to the watchdog after resume.
+if [ "$WAKE_TRIGGERED_BY_POWER" = true ]; then
+    wake_ignore_until=$(( $(date +%s) + 4 ))
+    echo "$wake_ignore_until" > /tmp/ignore_next_power_event_until
+    log_message "Set one-shot power event ignore window until ${wake_ignore_until}"
+else
+    rm -f /tmp/ignore_next_power_event_until
+fi
 
 kill "$GET_EVENT_PID" 2>/dev/null
 
