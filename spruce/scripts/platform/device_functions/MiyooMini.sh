@@ -296,7 +296,14 @@ device_exit_sleep() {
     sleep 0.5
     send_event /dev/input/event0 116:1 
 
-    pgrep retroarch 2>/dev/null && set_smart # return to smart mode
+    # Only restore ondemand/smart clocks when RetroArch is active.
+    # Keep function success independent from this optional branch so
+    # waking to MainUI does not report a false restore failure.
+    if pgrep retroarch >/dev/null 2>&1; then
+        set_smart # return to smart mode
+    fi
+
+    return 0
 }
 
 device_lid_sensor_ready() {
