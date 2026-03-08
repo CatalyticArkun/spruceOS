@@ -294,7 +294,10 @@ device_exit_sleep() {
     rm -f /tmp/screen_blanked /tmp/saved_brightness             # clean up temp files
 
     sleep 0.5
-    send_event /dev/input/event0 116:1 
+
+    # Do not emit synthetic KEY_POWER on wake restore.
+    # The real wake press is already handled by sleep_helper/watchdog and
+    # synthetic injection can be observed later as a fresh sleep trigger.
 
     # Only restore ondemand/smart clocks when RetroArch is active.
     # Keep function success independent from this optional branch so

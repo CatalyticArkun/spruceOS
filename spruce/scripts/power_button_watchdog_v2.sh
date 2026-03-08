@@ -96,9 +96,11 @@ while true; do
     log_message "power_button_watchdog_v2.sh: Monitoring power button events on $EVENT_PATH_POWER"
     getevent -exclusive -pid $$ $EVENT_PATH_POWER | while read line; do
         if [ -e /tmp/sleep_helper_started ]; then
-            log_message "power_button_watchdog_v2.sh: Sleep helper active, clearing pending power state and skipping event."
+            log_message "power_button_watchdog_v2.sh: Sleep helper active, clearing state and restarting getevent stream."
             reset_power_button_state
-            continue
+            # Break and restart getevent so queued wake-transition events
+            # are not interpreted after sleep_helper hands control back.
+            break
         fi
 
         now=$(date +%s)
