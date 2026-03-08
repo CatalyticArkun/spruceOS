@@ -24,10 +24,27 @@ else
     s2_arg=""
 fi
 
+power_trace_shutdown_already_pending() {
+    if ! command -v power_trace_load_state >/dev/null 2>&1; then
+        return 1
+    fi
+
+    power_trace_load_state
+    [ "${pt_last_state:-}" = "SHUTDOWN_PENDING" ] && [ "${pt_requested_state:-}" = "SHUTDOWN" ]
+}
+
+power_trace_emit_shutdown_begin_once() {
+    if power_trace_shutdown_already_pending; then
+        power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "save_poweroff_entry" "save_poweroff.sh:startup" "shutdown already pending before save_poweroff entry" "" "normal" "autosave_expected" "" "" ""
+    else
+        power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "shutdown path requested" "" "normal" "autosave_expected" "" "" ""
+    fi
+}
+
 if [ "$s2_arg" = "--reboot" ]; then
     power_trace_emit "REBOOT_BEGIN" "AUTO" "BOOTING" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "reboot path requested" "" "reboot" "" "" "" ""
 else
-    power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "shutdown path requested" "" "normal" "autosave_expected" "" "" ""
+    power_trace_emit_shutdown_begin_once
 fi
 
 ##### FUNCTION DEFINITIONS ####################
