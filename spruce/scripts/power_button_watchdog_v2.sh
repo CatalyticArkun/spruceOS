@@ -25,7 +25,6 @@ power_key_up () {
         fi
 
         if [ "$was_cancelled" = false ]; then
-            power_trace_emit "SLEEP_REQUESTED" "AUTO" "SLEEPING" "RUNNING" "power_button_tap" "power_button_watchdog_v2.sh:power_key_up" "short press requesting sleep" "" "" "" "" "" ""
             /mnt/SDCARD/spruce/scripts/sleep_helper.sh
         fi
     fi
