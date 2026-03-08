@@ -168,6 +168,26 @@ wait_for_graceful_emu_exit() {
     done
 }
 
+any_emu_is_running() {
+    for process in $EMU_PROCESSES; do
+        if killall -q -0 "$process" 2>/dev/null; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+dismiss_active_emu_menu_state() {
+    command -v send_menu_button_to_retroarch >/dev/null 2>&1 || return 0
+
+    if pgrep -f "ra32.miyoo|retroarch|PPSSPPSDL" >/dev/null 2>&1; then
+        log_message "save_poweroff.sh: attempting to dismiss in-game menu before emulator shutdown"
+        send_menu_button_to_retroarch
+        sleep 0.1
+    fi
+}
+
 close_forcefully_all_emus() {
     for process in $EMU_PROCESSES; do
         killall -q -0 "$process" 2>/dev/null && killall -q -9 "$process" 2>/dev/null
@@ -317,11 +337,15 @@ device_prepare_for_poweroff
 log_activity_event "$(get_current_app)" "STOP"
 stop_problematic_scripts
 
-if ! flag_check "in_menu"; then
+if any_emu_is_running; then
+    dismiss_active_emu_menu_state
     attempt_to_close_emu_gracefully
     wait_for_graceful_emu_exit
     sync
     close_forcefully_all_emus
+fi
+
+if ! flag_check "in_menu"; then
     close_non_emu_cmd_to_run
 fi
 
