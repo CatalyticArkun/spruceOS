@@ -5,6 +5,16 @@
 log_message "power_button_watchdog_v2.sh: Started up."
 
 
+reset_power_button_state() {
+    rm -f /tmp/powerbtn /tmp/powerbtn_cancelled
+
+    if [ -n "$power_hold_pid" ]; then
+        kill "$power_hold_pid" 2>/dev/null
+        wait "$power_hold_pid" 2>/dev/null
+        power_hold_pid=""
+    fi
+}
+
 
 power_key_up () {
     log_message "Power button released at $(date +%s)"  
@@ -63,7 +73,8 @@ while true; do
     log_message "power_button_watchdog_v2.sh: Monitoring power button events on $EVENT_PATH_POWER"
     getevent -exclusive -pid $$ $EVENT_PATH_POWER | while read line; do
         if [ -e /tmp/sleep_helper_started ]; then
-            log_message "power_button_watchdog_v2.sh: Sleep helper active, skipping power button event."
+            log_message "power_button_watchdog_v2.sh: Sleep helper active, clearing pending power state and skipping event."
+            reset_power_button_state
             continue
         fi
 

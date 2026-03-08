@@ -187,5 +187,9 @@ power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "resume_compl
 
 kill "$GET_EVENT_PID" 2>/dev/null
 
+# Clear pending power-button watchdog state before allowing new sleep requests.
+# This prevents wake-related/stale power transitions from immediately retriggering sleep.
+rm -f /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_pressed_flag
+
 sleep 2 #don't allow resleeping for a few seconds
 rm -f /tmp/sleep_helper_started
