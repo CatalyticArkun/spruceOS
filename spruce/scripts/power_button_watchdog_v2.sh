@@ -15,27 +15,30 @@ reset_power_button_state() {
     fi
 }
 
-should_ignore_power_event() {
-    if [ ! -e /tmp/ignore_next_power_event_until ]; then
-        return 1
+watchdog_suspended_or_not_rearmed() {
+    if [ -e /tmp/power_watchdog_suspended ]; then
+        # Recover from stale suspend state if sleep_helper is no longer running.
+        if ! pgrep -f "/mnt/SDCARD/spruce/scripts/sleep_helper.sh" >/dev/null 2>&1; then
+            log_message "power_button_watchdog_v2.sh: Found stale power_watchdog_suspended, clearing."
+            rm -f /tmp/power_watchdog_suspended
+        else
+            return 0
+        fi
     fi
 
-    ignore_until=$(cat /tmp/ignore_next_power_event_until 2>/dev/null)
-    now=$(date +%s)
+    if [ -e /tmp/power_watchdog_rearm_after ]; then
+        rearm_at=$(cat /tmp/power_watchdog_rearm_after 2>/dev/null)
+        now=$(date +%s)
 
-    if [ -z "$ignore_until" ] || [ "$ignore_until" -lt "$now" ] 2>/dev/null; then
-        rm -f /tmp/ignore_next_power_event_until
-        return 1
+        if [ -n "$rearm_at" ] && [ "$now" -lt "$rearm_at" ] 2>/dev/null; then
+            return 0
+        fi
+
+        rm -f /tmp/power_watchdog_rearm_after
     fi
 
-    return 0
+    return 1
 }
-
-consume_ignored_power_event() {
-    rm -f /tmp/ignore_next_power_event_until
-    reset_power_button_state
-}
-
 
 power_key_up () {
     log_message "Power button released at $(date +%s)"  
@@ -89,17 +92,16 @@ power_key_down () {
     fi
 }
 
-IGNORE_RELEASE_AFTER_WAKE=false
 
 while true; do
     LAST_POWER_DOWN=0
     log_message "power_button_watchdog_v2.sh: Monitoring power button events on $EVENT_PATH_POWER"
     getevent -exclusive -pid $$ $EVENT_PATH_POWER | while read line; do
-        if [ -e /tmp/sleep_helper_started ]; then
-            log_message "power_button_watchdog_v2.sh: Sleep helper active, clearing state and restarting getevent stream."
+        if watchdog_suspended_or_not_rearmed; then
+            log_message "power_button_watchdog_v2.sh: Sleep ownership active or rearm pending; resetting state and restarting stream."
             reset_power_button_state
-            # Break and restart getevent so queued wake-transition events
-            # are not interpreted after sleep_helper hands control back.
+            # Break and restart getevent so wake-transition lifecycle stays
+            # owned by sleep_helper and the post-resume boundary.
             break
         fi
 
@@ -107,12 +109,6 @@ while true; do
         case $line in
             # Power key down
             *"key $B_POWER 1"*)
-                if should_ignore_power_event; then
-                    log_message "power_button_watchdog_v2.sh: Ignoring first post-wake power_key_down"
-                    IGNORE_RELEASE_AFTER_WAKE=true
-                    continue
-                fi
-
                 if [ $((now - LAST_POWER_DOWN)) -ge 1 ]; then
                     log_message "power_button_watchdog_v2.sh: power_key_down"
                     power_key_down
@@ -122,13 +118,6 @@ while true; do
 
             # Power key up
             *"key $B_POWER 0"*)
-                    if [ "$IGNORE_RELEASE_AFTER_WAKE" = true ]; then
-                        log_message "power_button_watchdog_v2.sh: Ignoring matching post-wake power_key_up"
-                        IGNORE_RELEASE_AFTER_WAKE=false
-                        consume_ignored_power_event
-                        continue
-                    fi
-
                     log_message "power_button_watchdog_v2.sh: power_key_up"
                     power_key_up
                 ;;

@@ -14,6 +14,12 @@ log_message "Sleep helper starting up..."
 rm -f /tmp/power_pressed_flag
 
 touch /tmp/sleep_helper_started
+
+if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
+    # During pseudo-sleep, watchdog must not co-own power input semantics.
+    # sleep_helper is authoritative for wake detection until explicit rearm.
+    touch /tmp/power_watchdog_suspended
+fi
 START_TIME=$(date +%s)
 getevent $EVENT_PATH_POWER | while read -r line; do
     CURRENT_TIME=$(date +%s)
@@ -41,10 +47,13 @@ power_button_pressed() {
     fi
 }
 
-WAKE_TRIGGERED_BY_POWER=false
+cleanup_sleep_helper() {
+    kill "$GET_EVENT_PID" 2>/dev/null
+    rm -f "$POWER_BUTTON_PIPE" /tmp/power_watchdog_suspended /tmp/sleep_helper_started
+}
 
 # Clean up on exit
-trap 'kill $GET_EVENT_PID 2>/dev/null; rm -f "$POWER_BUTTON_PIPE"' EXIT
+trap cleanup_sleep_helper EXIT
 
 get_shutdown_timer() {
     local LID_TIMER
@@ -75,7 +84,6 @@ trigger_sleep() {
     log_message "Entering sleep"
     lid_ever_closed=false
     sleep_exited=false
-    WAKE_TRIGGERED_BY_POWER=false
     # Get the lid powerdown timeout
     local IDLE_TIMEOUT
     IDLE_TIMEOUT=$(get_shutdown_timer)
@@ -122,7 +130,6 @@ trigger_sleep() {
             elif power_button_pressed; then
                 if [ "$current_lid_state" = "1" ]; then
                     log_message "Power button pressed, exiting pseudosleep"
-                    WAKE_TRIGGERED_BY_POWER=true
                     sleep_exited=true 
                     break
                 else
@@ -189,14 +196,16 @@ set_volume "$VOLUME_LV"
 unpause_emulators
 power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "resume_complete" "sleep_helper.sh:main" "post-wake restore complete" "" "" "" "" "" ""
 
-# On pseudo-sleep wake by power button, ignore one replayed/delayed power event.
-# This protects against the wake press being delivered to the watchdog after resume.
-if [ "$WAKE_TRIGGERED_BY_POWER" = true ]; then
-    wake_ignore_until=$(( $(date +%s) + 4 ))
-    echo "$wake_ignore_until" > /tmp/ignore_next_power_event_until
-    log_message "Set one-shot power event ignore window until ${wake_ignore_until}"
+if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
+    # Explicit watchdog rearm contract:
+    # - sleep_helper keeps ownership through wake/restore.
+    # - watchdog may resume normal short/long-press semantics only after
+    #   this settle boundary has elapsed.
+    watchdog_rearm_at=$(( $(date +%s) + 3 ))
+    echo "$watchdog_rearm_at" > /tmp/power_watchdog_rearm_after
+    log_message "Set watchdog rearm boundary at epoch ${watchdog_rearm_at}"
 else
-    rm -f /tmp/ignore_next_power_event_until
+    rm -f /tmp/power_watchdog_rearm_after
 fi
 
 kill "$GET_EVENT_PID" 2>/dev/null
@@ -204,6 +213,9 @@ kill "$GET_EVENT_PID" 2>/dev/null
 # Clear pending power-button watchdog state before allowing new sleep requests.
 # This prevents wake-related/stale power transitions from immediately retriggering sleep.
 rm -f /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_pressed_flag
+
+# End explicit ownership handoff; watchdog still waits for rearm boundary.
+rm -f /tmp/power_watchdog_suspended
 
 sleep 2 #don't allow resleeping for a few seconds
 rm -f /tmp/sleep_helper_started
