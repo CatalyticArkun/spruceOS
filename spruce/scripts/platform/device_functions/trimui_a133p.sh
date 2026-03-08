@@ -275,3 +275,10 @@ device_system_handles_sdcard_unmount() {
     # return non-zero = false
     return 1 # Brick/SmartPro leaves dirty bit set?
 }
+device_power_trace_capabilities() {
+    echo "sleep_signal=kernel_suspend wake_source=rtc_or_power lid_sensor=none rtc_alarm=available"
+}
+
+device_power_trace_notes() {
+    echo "trimui a133p uses wakealarm and trimui daemons may need restart after resume"
+}

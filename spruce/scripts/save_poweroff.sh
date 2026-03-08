@@ -24,6 +24,12 @@ else
     s2_arg=""
 fi
 
+if [ "$s2_arg" = "--reboot" ]; then
+    power_trace_emit "REBOOT_BEGIN" "AUTO" "BOOTING" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "reboot path requested" "" "reboot" "" "" "" ""
+else
+    power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "shutdown path requested" "" "normal" "autosave_expected" "" "" ""
+fi
+
 ##### FUNCTION DEFINITIONS ####################
 
 blink_led_if_applicable() {
@@ -262,6 +268,7 @@ exec_shutdown_stage_2() {
         exec "$STAGE_2_TMP_PATH" "$s2_arg"
     else
         log_message "ERROR: Stage 2 script missing! Executing run_poweroff_cmd() instead."
+        power_trace_emit "POWER_ERROR" "AUTO" "OFF" "RUNNING" "stage2_missing" "save_poweroff.sh:exec_shutdown_stage_2" "stage2 shutdown script missing" "" "" "" "" "stage2_script_missing" ""
         run_poweroff_cmd
     fi
 }
@@ -275,6 +282,7 @@ if [ -f "$PIDFILE" ]; then
     oldpid="$(cat "$PIDFILE")"
     if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
     log_message "save_poweroff.sh called in duplicate. Ignoring second call."
+        power_trace_emit "INVALID_TRANSITION" "AUTO" "OFF" "RUNNING" "duplicate_shutdown_call" "save_poweroff.sh:reentry_guard" "duplicate save_poweroff invocation ignored" "" "" "" "" "" ""
         exit 0
     fi
 fi
@@ -312,6 +320,7 @@ if device_system_handles_sdcard_unmount; then
     if [ "$s2_arg" = "--reboot" ]; then
         device_run_reboot_cmd
     else
+        power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "systemd_path" "save_poweroff.sh:systemd" "platform manages shutdown sequence directly" "" "normal" "" "" "" ""
         run_poweroff_cmd
     fi
 

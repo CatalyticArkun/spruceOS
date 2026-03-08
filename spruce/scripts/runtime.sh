@@ -19,6 +19,13 @@ rotate_logs
 log_file="/mnt/SDCARD/Saves/spruce/spruce.log" # Resetting log file location
 log_message "---------Starting up---------"
 
+if command -v power_trace_boot_reconcile_pending >/dev/null 2>&1; then
+    power_trace_boot_reconcile_pending || true
+fi
+if command -v power_trace_emit >/dev/null 2>&1; then
+    power_trace_emit "BOOT_BEGIN" "AUTO" "BOOTING" "BOOTING" "runtime_start" "runtime.sh:startup" "runtime startup sequence entered" "" "" "" "$(flag_check save_active && echo true || echo false)" "" "" || true
+fi
+
 run_sd_card_fix_if_triggered    # do this before anything else
 set_performance
 device_init
@@ -48,6 +55,14 @@ fi
 
 launch_startup_watchdogs
 
+# run automation-first diagnostics in background only when explicitly enabled
+if flag_check "RUN_STARTTIME_DIAGNOSTICS"; then
+    /mnt/SDCARD/spruce/scripts/diagnostics/runner.sh >/dev/null 2>&1 &
+    log_message "Start-time diagnostics enabled (RUN_STARTTIME_DIAGNOSTICS)."
+else
+    log_message "Start-time diagnostics disabled (RUN_STARTTIME_DIAGNOSTICS not set)."
+fi
+
 # check whether to auto-resume into a game
 if flag_check "save_active"; then
     auto_resume_game
@@ -67,6 +82,10 @@ set_smart
 set_up_boot_action
 
 flag_remove "save_active"
+
+if command -v power_trace_emit >/dev/null 2>&1; then
+    power_trace_emit "BOOT_COMPLETE" "AUTO" "RUNNING" "RUNNING" "runtime_ready" "runtime.sh:startup" "startup tasks complete; entering principal loop" "" "" "" "" "" "" || true
+fi
 
 # start main loop
 log_message "Starting main loop"

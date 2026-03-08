@@ -25,6 +25,7 @@ power_key_up () {
         fi
 
         if [ "$was_cancelled" = false ]; then
+            power_trace_emit "SLEEP_REQUESTED" "AUTO" "SLEEPING" "RUNNING" "power_button_tap" "power_button_watchdog_v2.sh:power_key_up" "short press requesting sleep" "" "" "" "" "" ""
             /mnt/SDCARD/spruce/scripts/sleep_helper.sh
         fi
     fi
@@ -45,6 +46,7 @@ power_key_down () {
             # Check if the powerbtn file still exists (i.e. button still held) AND NOT cancelled (i.e. no other button pressed)
             if [ -e /tmp/powerbtn ] && [ ! -e /tmp/powerbtn_cancelled ]; then
                 log_message "power_button_watchdog_v2.sh: Powering off due to power button hold."
+                power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "power_button_hold" "power_button_watchdog_v2.sh:power_key_down" "long press requested poweroff" "" "forced" "autosave_expected" "" "" ""
                 vibrate &
                 rm -f /tmp/powerbtn
                 rm -f /tmp/powerbtn_cancelled

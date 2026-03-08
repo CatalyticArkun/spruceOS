@@ -370,6 +370,7 @@ set_volume_to_config() {
 }
 
 auto_resume_game() {
+    power_trace_emit "WAKE_RESUME_BEGIN" "AUTO" "RUNNING" "BOOTING" "autoresume" "runtimeHelper.sh:auto_resume_game" "save_active flag triggered autoresume" "" "" "" "save_active=true" "" ""
     log_message "save_active flag detected. Autoresuming game."
 
     # Ensure device is properly initialized (volume, wifi, etc) before launching auto-resume
@@ -387,6 +388,7 @@ auto_resume_game() {
     nice -n -20 /tmp/cmd_to_run.sh &> /dev/null
     rm -f /tmp/cmd_to_run.sh # remove tmp command file after game exit; otherwise the game will load again in principal.sh later
     log_message "Auto Resume executed"
+    power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "autoresume_complete" "runtimeHelper.sh:auto_resume_game" "autoresume command finished" "" "" "" "save_active=true" "" ""
 }
 
 set_up_boot_action() {
