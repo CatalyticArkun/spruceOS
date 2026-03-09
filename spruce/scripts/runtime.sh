@@ -93,7 +93,15 @@ firstboot_completion_artifacts_look_clean() {
         return 1
     fi
 
-    for startup_dir in /mnt/SDCARD/spruce/archives/preMenu /mnt/SDCARD/spruce/archives/preCmd; do
+    # Startup-owned archive locations must be empty once firstboot is complete.
+    # preCmd is intentionally excluded because later boots may legitimately stage
+    # pre_cmd work there.
+    for startup_dir in /mnt/SDCARD/spruce/archives/preMenu /mnt/SDCARD/Themes /mnt/SDCARD/RetroArch/.retroarch/assets; do
+        if [ ! -d "$startup_dir" ]; then
+            log_message "runtime.sh: verification skipping missing startup archive directory ${startup_dir}"
+            continue
+        fi
+
         leftover_archive="$(find "$startup_dir" -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) | head -n 1)"
         if [ -n "$leftover_archive" ]; then
             log_message "runtime.sh: firstboot verification failed (leftover startup archive: ${leftover_archive})"
@@ -133,9 +141,9 @@ if flag_check "$FIRSTBOOT_FLAG" || (flag_check "$FIRSTBOOT_IN_PROGRESS_FLAG" && 
     "/mnt/SDCARD/spruce/scripts/firstboot.sh"
     log_message "runtime.sh: firstboot.sh completed"
 else
-    log_message "runtime.sh: launching archiveUnpacker.sh (foreground)"
-    /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh
-    log_message "runtime.sh: archiveUnpacker.sh foreground run completed"
+    log_message "runtime.sh: launching archiveUnpacker.sh pre_cmd (foreground)"
+    /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh pre_cmd
+    log_message "runtime.sh: archiveUnpacker.sh pre_cmd foreground run completed"
 fi
 
 /mnt/SDCARD/spruce/scripts/set_up_swap.sh &
