@@ -53,20 +53,44 @@ unpack_archives() {
     [ -n "$flag_name" ] && flag_add "$flag_name" --tmp
     log_message "Unpacker: scanning ${dir} (flag=${flag_name:-none})"
 
-    for archive in "$dir"/*.7z; do
-        if [ -f "$archive" ]; then
-            archive_name=$(basename "$archive" .7z)
-            display_if_not_silent
+    for archive in "$dir"/*.7z.extracting "$dir"/*.7z; do
+        [ -f "$archive" ] || continue
 
-            if 7zr l "$archive" | grep -q "/mnt/SDCARD/"; then
-                if 7zr x -aoa "$archive" -o/; then
-                    rm -f "$archive"
-                    log_message "Unpacker: Unpacked and removed: $archive_name.7z"
+        recovering="false"
+        if echo "$archive" | grep -q '\.7z\.extracting$'; then
+            archive_name=$(basename "$archive" .7z.extracting)
+            recovering="true"
+            log_message "Unpacker: archive extraction interrupted recovery name=${archive_name}.7z"
+        else
+            archive_name=$(basename "$archive" .7z)
+            extracting_archive="${archive}.extracting"
+            if mv -f "$archive" "$extracting_archive"; then
+                archive="$extracting_archive"
+            else
+                log_message "Unpacker: archive extraction prepare failed name=${archive_name}.7z"
+                continue
+            fi
+        fi
+
+        log_message "Unpacker: archive found dir=${dir} name=${archive_name}.7z"
+        display_if_not_silent
+
+        if 7zr l "$archive" | grep -q "/mnt/SDCARD/"; then
+            log_message "Unpacker: archive extraction starting name=${archive_name}.7z"
+            if 7zr x -aoa "$archive" -o/; then
+                log_message "Unpacker: archive extraction completed name=${archive_name}.7z"
+                if rm -f "$archive"; then
+                    log_message "Unpacker: archive removed name=${archive_name}.7z"
                 else
-                    log_message "Unpacker: Failed to unpack: $archive_name.7z"
+                    log_message "Unpacker: archive remove failed name=${archive_name}.7z"
                 fi
             else
-                log_message "Unpacker: Skipped unpacking: $archive_name.7z (incorrect folder structure)"
+                log_message "Unpacker: archive extract failed name=${archive_name}.7z"
+            fi
+        else
+            log_message "Unpacker: archive skipped invalid-root name=${archive_name}.7z"
+            if [ "$recovering" = "false" ]; then
+                mv -f "$archive" "$dir/${archive_name}.7z"
             fi
         fi
     done
@@ -77,10 +101,10 @@ unpack_archives() {
 
 # Quick check for .7z files in relevant directories
 if [ "$RUN_MODE" = "all" ] &&
-    [ -z "$(find "$ARCHIVE_DIR/preCmd" -maxdepth 1 -name '*.7z' | head -n 1)" ] &&
-    [ -z "$(find "$ARCHIVE_DIR/preMenu" -maxdepth 1 -name '*.7z' | head -n 1)" ] &&
-    [ -z "$(find "$THEME_DIR" -maxdepth 1 -name '*.7z' | head -n 1)" ] &&
-    [ -z "$(find "$RA_THEME_DIR" -maxdepth 1 -name '*.7z' | head -n 1)" ]; then
+    [ -z "$(find "$ARCHIVE_DIR/preCmd" -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) | head -n 1)" ] &&
+    [ -z "$(find "$ARCHIVE_DIR/preMenu" -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) | head -n 1)" ] &&
+    [ -z "$(find "$THEME_DIR" -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) | head -n 1)" ] &&
+    [ -z "$(find "$RA_THEME_DIR" -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) | head -n 1)" ]; then
     log_message "Unpacker: No .7z files found to unpack. Exiting."
     exit 0
 fi
@@ -107,9 +131,8 @@ case "$RUN_MODE" in
         log_message "Unpacker: preCmd unpack running in foreground because save_active=true (autoresume-sensitive boot)"
         unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking"
     else
-        log_message "Unpacker: preCmd unpack running in background because save_active=false"
-        flag_add "silentUnpacker" --tmp
-        unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking" &
+        log_message "Unpacker: preCmd unpack running in background via dedicated silent pre_cmd worker because save_active=false"
+        /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_cmd &
     fi
     ;;
 "pre_cmd")

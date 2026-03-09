@@ -5,8 +5,11 @@
 
 start_pyui_message_writer
 
-flag_remove "first_boot_$PLATFORM"
-log_message "Starting firstboot script on $PLATFORM"
+FIRSTBOOT_FLAG="first_boot_$PLATFORM"
+FIRSTBOOT_IN_PROGRESS_FLAG="first_boot_${PLATFORM}_in_progress"
+
+flag_add "$FIRSTBOOT_IN_PROGRESS_FLAG"
+log_message "firstboot.sh: entered on $PLATFORM (set ${FIRSTBOOT_IN_PROGRESS_FLAG})"
 
 WIKI_ICON="/mnt/SDCARD/spruce/imgs/book.png"
 HAPPY_ICON="/mnt/SDCARD/spruce/imgs/smile.png"
@@ -53,12 +56,25 @@ sleep 5
 
 perform_fw_check
 
-if flag_check "pre_menu_unpacking"; then
+if flag_check "pre_menu_unpacking" || flag_check "pre_cmd_unpacking"; then
     display_image_and_text "$UNPACKING_ICON" 35 25 "Finishing up unpacking themes and files.........." 75
     flag_remove "silentUnpacker"
+fi
+
+if flag_check "pre_menu_unpacking"; then
+    log_message "firstboot.sh: waiting for pre_menu_unpacking to complete"
     while flag_check "pre_menu_unpacking"; do
         sleep 0.2
     done
+    log_message "firstboot.sh: pre_menu_unpacking complete"
+fi
+
+if flag_check "pre_cmd_unpacking"; then
+    log_message "firstboot.sh: waiting for pre_cmd_unpacking to complete"
+    while flag_check "pre_cmd_unpacking"; do
+        sleep 0.2
+    done
+    log_message "firstboot.sh: pre_cmd_unpacking complete"
 fi
 
 # create splore launcher if it doesn't already exist
@@ -73,4 +89,7 @@ fi
 display_image_and_text "$HAPPY_ICON" 35 25 "Happy gaming.........." 75
 sleep 5
 
+log_message "firstboot.sh: required work complete; clearing ${FIRSTBOOT_FLAG} and ${FIRSTBOOT_IN_PROGRESS_FLAG}"
+flag_remove "$FIRSTBOOT_FLAG"
+flag_remove "$FIRSTBOOT_IN_PROGRESS_FLAG"
 log_message "Finished firstboot script"
