@@ -359,8 +359,17 @@ device_get_battery_percent() {
 	cat "$BATTERY/capacity"
 }
 
+device_lid_sensor_ready() {
+    # SmartProS has no lid hall sensor.
+    return 1
+}
+
 device_lid_open(){
     # device has no lid so it's always open
+    echo "1"
+}
+
+device_uses_pseudo_sleep() {
     return 1
 }
 
@@ -491,4 +500,13 @@ device_system_handles_sdcard_unmount() {
     # return 0 = true
     # return non-zero = false
     return 1 # SmartProS leaves dirty bit set?
+}
+
+
+device_power_trace_capabilities() {
+    echo "sleep_signal=kernel_suspend wake_source=unknown lid_sensor=none rtc_alarm=available device_uses_pseudo_sleep=false"
+}
+
+device_power_trace_notes() {
+    echo "SmartProS uses /sys/power/state mem suspend with rtc wakealarm; wake fallback can be power button handling when timer wake is not detected"
 }

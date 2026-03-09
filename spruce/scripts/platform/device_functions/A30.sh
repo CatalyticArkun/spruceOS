@@ -378,3 +378,11 @@ device_system_handles_sdcard_unmount() {
     # return non-zero = false
     return 1 # A30 leaves dirty bit set?
 }
+
+device_power_trace_capabilities() {
+    echo "sleep_signal=kernel_suspend wake_source=rtc_or_power lid_sensor=none rtc_alarm=available"
+}
+
+device_power_trace_notes() {
+    echo "uses rtc wakealarm + mem suspend and hwclock-based timer inference"
+}

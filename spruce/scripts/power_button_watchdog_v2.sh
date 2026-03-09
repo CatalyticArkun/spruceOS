@@ -5,6 +5,40 @@
 log_message "power_button_watchdog_v2.sh: Started up."
 
 
+reset_power_button_state() {
+    rm -f /tmp/powerbtn /tmp/powerbtn_cancelled
+
+    if [ -n "$power_hold_pid" ]; then
+        kill "$power_hold_pid" 2>/dev/null
+        wait "$power_hold_pid" 2>/dev/null
+        power_hold_pid=""
+    fi
+}
+
+watchdog_suspended_or_not_rearmed() {
+    if [ -e /tmp/power_watchdog_suspended ]; then
+        # Recover from stale suspend state if sleep_helper is no longer running.
+        if ! pgrep -f "/mnt/SDCARD/spruce/scripts/sleep_helper.sh" >/dev/null 2>&1; then
+            log_message "power_button_watchdog_v2.sh: Found stale power_watchdog_suspended, clearing."
+            rm -f /tmp/power_watchdog_suspended
+        else
+            return 0
+        fi
+    fi
+
+    if [ -e /tmp/power_watchdog_rearm_after ]; then
+        rearm_at=$(cat /tmp/power_watchdog_rearm_after 2>/dev/null)
+        now=$(date +%s)
+
+        if [ -n "$rearm_at" ] && [ "$now" -lt "$rearm_at" ] 2>/dev/null; then
+            return 0
+        fi
+
+        rm -f /tmp/power_watchdog_rearm_after
+    fi
+
+    return 1
+}
 
 power_key_up () {
     log_message "Power button released at $(date +%s)"  
@@ -45,6 +79,7 @@ power_key_down () {
             # Check if the powerbtn file still exists (i.e. button still held) AND NOT cancelled (i.e. no other button pressed)
             if [ -e /tmp/powerbtn ] && [ ! -e /tmp/powerbtn_cancelled ]; then
                 log_message "power_button_watchdog_v2.sh: Powering off due to power button hold."
+                power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "power_button_hold" "power_button_watchdog_v2.sh:power_key_down" "long press requested poweroff" "" "forced" "autosave_expected" "" "" ""
                 vibrate &
                 rm -f /tmp/powerbtn
                 rm -f /tmp/powerbtn_cancelled
@@ -57,13 +92,17 @@ power_key_down () {
     fi
 }
 
+
 while true; do
     LAST_POWER_DOWN=0
     log_message "power_button_watchdog_v2.sh: Monitoring power button events on $EVENT_PATH_POWER"
     getevent -exclusive -pid $$ $EVENT_PATH_POWER | while read line; do
-        if [ -e /tmp/sleep_helper_started ]; then
-            log_message "power_button_watchdog_v2.sh: Sleep helper active, skipping power button event."
-            continue
+        if watchdog_suspended_or_not_rearmed; then
+            log_message "power_button_watchdog_v2.sh: Sleep ownership active or rearm pending; resetting state and restarting stream."
+            reset_power_button_state
+            # Break and restart getevent so wake-transition lifecycle stays
+            # owned by sleep_helper and the post-resume boundary.
+            break
         fi
 
         now=$(date +%s)

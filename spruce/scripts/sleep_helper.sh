@@ -14,6 +14,12 @@ log_message "Sleep helper starting up..."
 rm -f /tmp/power_pressed_flag
 
 touch /tmp/sleep_helper_started
+
+if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
+    # During pseudo-sleep, watchdog must not co-own power input semantics.
+    # sleep_helper is authoritative for wake detection until explicit rearm.
+    touch /tmp/power_watchdog_suspended
+fi
 START_TIME=$(date +%s)
 getevent $EVENT_PATH_POWER | while read -r line; do
     CURRENT_TIME=$(date +%s)
@@ -41,8 +47,13 @@ power_button_pressed() {
     fi
 }
 
+cleanup_sleep_helper() {
+    kill "$GET_EVENT_PID" 2>/dev/null
+    rm -f "$POWER_BUTTON_PIPE" /tmp/power_watchdog_suspended /tmp/sleep_helper_started
+}
+
 # Clean up on exit
-trap 'kill $GET_EVENT_PID 2>/dev/null; rm -f "$POWER_BUTTON_PIPE"' EXIT
+trap cleanup_sleep_helper EXIT
 
 get_shutdown_timer() {
     local LID_TIMER
@@ -69,6 +80,7 @@ get_shutdown_timer() {
 
 
 trigger_sleep() {
+    power_trace_emit "SLEEP_PREPARE_BEGIN" "AUTO" "SLEEPING" "RUNNING" "power_button" "sleep_helper.sh:trigger_sleep" "sleep helper invoked" "" "" "autosave_possible" "" "" ""
     log_message "Entering sleep"
     lid_ever_closed=false
     sleep_exited=false
@@ -82,11 +94,19 @@ trigger_sleep() {
     # Kill exclusive getevent to prevent buffered wake button events
     # from causing a re-sleep loop. The power watchdog's outer loop
     # will restart getevent fresh after sleep_helper exits.
+    power_trace_emit "SLEEP_PREPARE_COMPLETE" "AUTO" "SLEEPING" "RUNNING" "pre_sleep_ready" "sleep_helper.sh:trigger_sleep" "pre-sleep preparation done" "" "" "autosave_possible" "" "" ""
+    power_trace_emit "SLEEP_REQUESTED" "AUTO" "SLEEPING" "RUNNING" "sleep_request" "sleep_helper.sh:trigger_sleep" "calling device_enter_sleep" "" "" "" "" "" ""
+    power_trace_emit "SLEEP_ENTER_BEGIN" "AUTO" "SLEEPING" "RUNNING" "sleep_entry" "sleep_helper.sh:trigger_sleep" "about to enter device sleep" "" "" "" "" "" ""
     if [ "$(device_uses_pseudo_sleep)" != "true" ]; then
         kill $(pgrep -f "getevent.*-exclusive") 2>/dev/null
         sleep 0.3
     fi
-    device_enter_sleep "$IDLE_TIMEOUT"
+    if ! device_enter_sleep "$IDLE_TIMEOUT"; then
+        power_trace_emit "POWER_ERROR" "AUTO" "SLEEPING" "RUNNING" "device_enter_sleep" "sleep_helper.sh:trigger_sleep" "device_enter_sleep failed" "" "" "" "" "device_enter_sleep_returned_nonzero" ""
+        power_trace_emit "TRANSITION_ABORTED" "AUTO" "SLEEPING" "RUNNING" "device_enter_sleep" "sleep_helper.sh:trigger_sleep" "sleep transition aborted during entry" "" "" "" "" "" ""
+        return 1
+    fi
+    power_trace_emit "SLEEP_ENTER_COMPLETE" "AUTO" "SLEEPING" "SLEEPING" "sleep_entered" "sleep_helper.sh:trigger_sleep" "device sleep call returned" "" "" "" "" "" ""
     if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
         log_message "Device uses pseudosleep -- starting idle loop"
         log_message "Starting idle timeout countdown: ${IDLE_TIMEOUT}s until poweroff if lid remains closed"
@@ -124,6 +144,7 @@ trigger_sleep() {
 
         # Timeout reached without exitting sleep → poweroff
         if [ "$sleep_exited" = false ]; then
+            power_trace_emit "TRANSITION_TIMEOUT" "AUTO" "RUNNING" "SLEEPING" "sleep_timeout" "sleep_helper.sh:trigger_sleep" "pseudo-sleep timeout hit; requesting poweroff" "" "idle_timeout" "" "" "" "$((IDLE_TIMEOUT * 1000))"
             log_message "Lid closed for ${IDLE_TIMEOUT}s, triggering poweroff"
             # Set clocks bad to full speed
             set_performance
@@ -143,18 +164,28 @@ trigger_sleep() {
 
 
         if [ "$(device_woke_via_timer)" = "true" ]; then
+            power_trace_emit "TRANSITION_TIMEOUT" "AUTO" "RUNNING" "SLEEPING" "rtc_timeout" "sleep_helper.sh:trigger_sleep" "woke via timer and escalating to poweroff" "rtc" "idle_timeout" "" "" "" "$((IDLE_TIMEOUT * 1000))"
             log_message "Idle time exceeded, triggering poweroff -- IDLE_TIMEOUT=$IDLE_TIMEOUT"
             sleep 0.1
             "$POWER_OFF_SCRIPT" &
         else
+            power_trace_emit "WAKE_DETECTED" "AUTO" "RUNNING" "WAKING" "manual" "sleep_helper.sh:trigger_sleep" "manual wake detected" "power_button_or_lid" "" "" "" "" ""
             log_message "Woke from sleep manually"
         fi
     fi
 }
 
-trigger_sleep
+if ! trigger_sleep; then
+    power_trace_emit "TRANSITION_ABORTED" "AUTO" "RUNNING" "RUNNING" "trigger_sleep_failed" "sleep_helper.sh:main" "trigger_sleep returned failure" "" "" "" "" "" ""
+    kill "$GET_EVENT_PID" 2>/dev/null
+    rm -f /tmp/sleep_helper_started
+    exit 1
+fi
 
-device_exit_sleep
+power_trace_emit "WAKE_RESUME_BEGIN" "AUTO" "RUNNING" "WAKING" "resume_start" "sleep_helper.sh:main" "beginning post-wake restore" "" "" "" "" "" ""
+if ! device_exit_sleep; then
+    power_trace_emit "POWER_ERROR" "AUTO" "RUNNING" "WAKING" "device_exit_sleep" "sleep_helper.sh:main" "device_exit_sleep failed" "" "" "" "" "device_exit_sleep_returned_nonzero" ""
+fi
 
 log_activity_event "$current_app" "START"
 
@@ -163,8 +194,28 @@ VOLUME_LV=$(jq -r '.vol' "$SYSTEM_JSON")
 set_volume "$VOLUME_LV"
 
 unpause_emulators
+power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "resume_complete" "sleep_helper.sh:main" "post-wake restore complete" "" "" "" "" "" ""
+
+if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
+    # Explicit watchdog rearm contract:
+    # - sleep_helper keeps ownership through wake/restore.
+    # - watchdog may resume normal short/long-press semantics only after
+    #   this settle boundary has elapsed.
+    watchdog_rearm_at=$(( $(date +%s) + 3 ))
+    echo "$watchdog_rearm_at" > /tmp/power_watchdog_rearm_after
+    log_message "Set watchdog rearm boundary at epoch ${watchdog_rearm_at}"
+else
+    rm -f /tmp/power_watchdog_rearm_after
+fi
 
 kill "$GET_EVENT_PID" 2>/dev/null
+
+# Clear pending power-button watchdog state before allowing new sleep requests.
+# This prevents wake-related/stale power transitions from immediately retriggering sleep.
+rm -f /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_pressed_flag
+
+# End explicit ownership handoff; watchdog still waits for rearm boundary.
+rm -f /tmp/power_watchdog_suspended
 
 sleep 2 #don't allow resleeping for a few seconds
 rm -f /tmp/sleep_helper_started

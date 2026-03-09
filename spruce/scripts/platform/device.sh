@@ -322,6 +322,15 @@ device_wifi_power_off() {
     log_message "Missing device_wifi_power_off function" -v
 }
 
+
+device_power_trace_capabilities() {
+    echo "sleep_signal=unknown wake_source=unknown lid_sensor=unknown rtc_alarm=unknown"
+}
+
+device_power_trace_notes() {
+    echo "target_did_not_provide_power_trace_notes"
+}
+
 device_system_handles_sdcard_unmount() {
     # return 0 = true
     # return non-zero = false

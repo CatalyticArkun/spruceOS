@@ -24,6 +24,29 @@ else
     s2_arg=""
 fi
 
+power_trace_shutdown_already_pending() {
+    if ! command -v power_trace_load_state >/dev/null 2>&1; then
+        return 1
+    fi
+
+    power_trace_load_state
+    [ "${pt_last_state:-}" = "SHUTDOWN_PENDING" ] && [ "${pt_requested_state:-}" = "SHUTDOWN" ]
+}
+
+power_trace_emit_shutdown_begin_once() {
+    if power_trace_shutdown_already_pending; then
+        power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "save_poweroff_entry" "save_poweroff.sh:startup" "shutdown already pending before save_poweroff entry" "" "normal" "autosave_expected" "" "" ""
+    else
+        power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "shutdown path requested" "" "normal" "autosave_expected" "" "" ""
+    fi
+}
+
+if [ "$s2_arg" = "--reboot" ]; then
+    power_trace_emit "REBOOT_BEGIN" "AUTO" "BOOTING" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "reboot path requested" "" "reboot" "" "" "" ""
+else
+    power_trace_emit_shutdown_begin_once
+fi
+
 ##### FUNCTION DEFINITIONS ####################
 
 blink_led_if_applicable() {
@@ -145,6 +168,26 @@ wait_for_graceful_emu_exit() {
     done
 }
 
+any_emu_is_running() {
+    for process in $EMU_PROCESSES; do
+        if killall -q -0 "$process" 2>/dev/null; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+dismiss_active_emu_menu_state() {
+    command -v send_menu_button_to_retroarch >/dev/null 2>&1 || return 0
+
+    if pgrep -f "ra32.miyoo|retroarch|PPSSPPSDL" >/dev/null 2>&1; then
+        log_message "save_poweroff.sh: attempting to dismiss in-game menu before emulator shutdown"
+        send_menu_button_to_retroarch
+        sleep 0.1
+    fi
+}
+
 close_forcefully_all_emus() {
     for process in $EMU_PROCESSES; do
         killall -q -0 "$process" 2>/dev/null && killall -q -9 "$process" 2>/dev/null
@@ -262,6 +305,7 @@ exec_shutdown_stage_2() {
         exec "$STAGE_2_TMP_PATH" "$s2_arg"
     else
         log_message "ERROR: Stage 2 script missing! Executing run_poweroff_cmd() instead."
+        power_trace_emit "POWER_ERROR" "AUTO" "OFF" "RUNNING" "stage2_missing" "save_poweroff.sh:exec_shutdown_stage_2" "stage2 shutdown script missing" "" "" "" "" "stage2_script_missing" ""
         run_poweroff_cmd
     fi
 }
@@ -275,6 +319,7 @@ if [ -f "$PIDFILE" ]; then
     oldpid="$(cat "$PIDFILE")"
     if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
     log_message "save_poweroff.sh called in duplicate. Ignoring second call."
+        power_trace_emit "INVALID_TRANSITION" "AUTO" "OFF" "RUNNING" "duplicate_shutdown_call" "save_poweroff.sh:reentry_guard" "duplicate save_poweroff invocation ignored" "" "" "" "" "" ""
         exit 0
     fi
 fi
@@ -292,11 +337,15 @@ device_prepare_for_poweroff
 log_activity_event "$(get_current_app)" "STOP"
 stop_problematic_scripts
 
-if ! flag_check "in_menu"; then
+if any_emu_is_running; then
+    dismiss_active_emu_menu_state
     attempt_to_close_emu_gracefully
     wait_for_graceful_emu_exit
     sync
     close_forcefully_all_emus
+fi
+
+if ! flag_check "in_menu"; then
     close_non_emu_cmd_to_run
 fi
 
@@ -312,6 +361,7 @@ if device_system_handles_sdcard_unmount; then
     if [ "$s2_arg" = "--reboot" ]; then
         device_run_reboot_cmd
     else
+        power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "systemd_path" "save_poweroff.sh:systemd" "platform manages shutdown sequence directly" "" "normal" "" "" "" ""
         run_poweroff_cmd
     fi
 
