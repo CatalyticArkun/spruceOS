@@ -77,11 +77,17 @@ for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after 
 done
 
 # Check for first_boot flags and run Unpacker accordingly
-log_message "runtime.sh: milestone archive_unpack_boot_gate (checking first_boot_${PLATFORM})"
-if flag_check "first_boot_${PLATFORM}"; then
-    log_message "runtime.sh: launching archiveUnpacker.sh --silent in background (first boot path)"
+FIRSTBOOT_IN_PROGRESS_FLAG="first_boot_${PLATFORM}_in_progress"
+log_message "runtime.sh: milestone archive_unpack_boot_gate (checking first_boot_${PLATFORM} / ${FIRSTBOOT_IN_PROGRESS_FLAG})"
+if flag_check "first_boot_${PLATFORM}" || flag_check "$FIRSTBOOT_IN_PROGRESS_FLAG"; then
+    if flag_check "$FIRSTBOOT_IN_PROGRESS_FLAG" && ! flag_check "first_boot_${PLATFORM}"; then
+        log_message "runtime.sh: detected interrupted firstboot recovery path via ${FIRSTBOOT_IN_PROGRESS_FLAG}"
+        flag_add "first_boot_${PLATFORM}"
+    fi
+
+    log_message "runtime.sh: launching archiveUnpacker.sh --silent in background (first boot/recovery path)"
     /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent &
-    log_message "Unpacker started silently in background due to first_boot flag"
+    log_message "Unpacker started silently in background due to first_boot/in-progress flag"
     log_message "runtime.sh: launching firstboot.sh (foreground)"
     "/mnt/SDCARD/spruce/scripts/firstboot.sh"
     log_message "runtime.sh: firstboot.sh completed"
