@@ -16,7 +16,7 @@
    - Calls `archiveUnpacker.sh` with no args after ThemeGarden exits (default `RUN_MODE=all`).
 
 3. `archiveUnpacker.sh` self-call
-   - In `RUN_MODE=all`, when `save_active=false`, it now launches a separate worker: `archiveUnpacker.sh --silent pre_cmd &`.
+   - In `RUN_MODE=all`, when `save_active=false`, it launches a separate worker: `archiveUnpacker.sh --silent pre_cmd &`.
 
 ### `archiveUnpacker.sh` modes and scan scope
 
@@ -26,116 +26,129 @@
 
 ## Branch comparison
 
-## 1) Behavior in Development
+### 1) Behavior in Development
 
 - Normal boots invoke `archiveUnpacker.sh` with default mode, so `preMenu` and theme archives are always eligible every boot.
-- `archiveUnpacker.sh` only iterates `*.7z` (no `.7z.extracting` recovery path).
-- In all-mode and `save_active=false`, preCmd work is backgrounded within same process function call.
+- `archiveUnpacker.sh` iterates `*.7z` only (no `.7z.extracting` recovery path).
+- In all-mode and `save_active=false`, preCmd work is backgrounded from within the all-mode flow.
+- Historically, the staged model included archives such as `xmb.7z` in the preCmd lane, and that remained workable because normal boot still ran all-mode and therefore drained all startup lanes.
 
-## 2) Behavior in arkun-dev
+### 2) Behavior in arkun-dev
 
 - Normal boots invoke only `archiveUnpacker.sh pre_cmd`; `preMenu` and `Themes` are not scanned on normal boot.
 - `archiveUnpacker.sh` adds `.7z.extracting` recovery + rename-to-`.extracting` before extract.
 - In all-mode and `save_active=false`, preCmd now runs via separate `--silent pre_cmd` invocation.
-- Firstboot verification now treats leftover startup archives (`preMenu`, `Themes`, RA assets) as firstboot-incomplete and can force recovery path.
+- Firstboot verification treats leftover startup archives (`preMenu`, `Themes`, RA assets) as firstboot-incomplete and can force recovery path.
 
-## 3) Latent bug present in Development too
+### 3) Latent bugs and design debt present before the regression trigger
 
 - `runtimeHelper.sh::unstage_archive()` uses `TARGET_FOLDER` instead of `TARGET` when deciding if destination should remain `preCmd`.
-- Because `TARGET_FOLDER` is unset, condition is true and destination is forced to `preMenu`.
-- Therefore archives intended for preCmd are silently misrouted to preMenu in both branches.
+- Because `TARGET_FOLDER` is unset, the condition is true and destination is forced to `preMenu`.
+- Separately, there is historical lane/content design debt around startup-critical content placement and lane semantics (including historical `xmb.7z` placement in preCmd), which previously did not fail visibly while normal boot drained all lanes.
 
-This is a **pre-existing producer-staging bug** (not introduced by arkun-dev).
+These are pre-existing issues that increase fragility, but they are not by themselves the branch regression trigger.
 
 ## Regression cause
 
-The xmb.7z regression is a lifecycle/orchestration interaction, not a single unpacker defect.
+The observed xmb.7z regression is a three-part interaction across layers:
 
-1. **Pre-existing mis-staging bug** routes some intended preCmd archives into `archives/preMenu`.
-2. **arkun-dev runtime change** switched normal boot unpacking from `all` to `pre_cmd` only.
-3. Result: misplaced `preMenu` archives are no longer consumed in normal boot, so they persist.
-4. Persisting archives become repeatedly eligible whenever an all-mode caller runs (`firstboot` recovery path, ThemeGarden exit, manual all-mode runs).
-5. arkun-dev firstboot verification now invalidates completion when startup dirs still contain archives, which can re-trigger recovery and re-exposure loops.
+1. **Historical design assumption / lane-content mismatch risk**
+   - `xmb.7z` historically lived in `preCmd` in the staged model, reflecting older lifecycle assumptions.
+2. **Caller orchestration change in arkun-dev**
+   - Normal boot changed from `RUN_MODE=all` to `RUN_MODE=pre_cmd`, narrowing which lanes are drained during standard startup.
+3. **Latent staging bug**
+   - `unstage_archive()` lane selection typo (`TARGET_FOLDER` vs `TARGET`) can misroute intended preCmd artifacts to preMenu.
 
-### `.7z.extracting` recovery and silent pre_cmd effects
+How this exposes the regression:
+- Under Development, all-mode normal boot masked lane fragility by draining preMenu/themes alongside preCmd every startup.
+- Under arkun-dev, pre_cmd-only normal boot no longer drains startup lanes broadly; any lane mismatch or misrouting leaves archives resident longer and repeatedly eligible when an all-mode caller later runs (firstboot/recovery, ThemeGarden exit, or manual all-mode invocation).
+- `.7z.extracting` recovery and silent pre_cmd worker changes affect retry/recovery mechanics, but they are not the root install-policy defect.
 
-- `.7z.extracting` recovery did **not** create the core regression, but it increases persistence visibility: interrupted extracts remain eligible in all-mode checks and scans.
-- Silent pre_cmd worker split also did **not** create the core regression; it changes execution mechanics for preCmd only.
-- The main trigger is caller orchestration narrowing normal-boot coverage (`all` -> `pre_cmd`) while producer mis-staging still feeds `preMenu`.
+## Regression Trigger vs Latent Design Debt
+
+- **Why the system worked before:**
+  - Development’s normal boot used all-mode, which drained multiple lanes every boot and masked lane-contract weaknesses.
+- **What changed to expose the issue:**
+  - arkun-dev narrowed normal boot to `pre_cmd`, so only one lane is drained by default; latent lane mismatches and staging errors became externally visible as repeated eligibility.
+- **Why unpacker is not root cause:**
+  - `archiveUnpacker.sh` executes queue extraction for requested lanes/modes. It does not decide archive lifecycle ownership or lane policy and should not become archive-name policy logic.
 
 ## Ownership by layer
 
-Per architectural rule (unpacker is execution engine, not install-policy engine):
+Per architectural rule (`archiveUnpacker.sh` is an execution engine, not an install-policy engine):
 
-1. **Producer staging (primary owner)**
-   - Must stage each archive to correct lane (`preMenu` vs `preCmd`) deterministically.
-   - Fix `unstage_archive` target-selection bug.
+1. **Producer / staging layer (primary ownership)**
+   - Owns correct lane selection at production/staging time.
+   - Owns archive lifecycle intent and lane contract clarity for each artifact class.
+   - Must fix `unstage_archive` lane selection bug.
 
-2. **Caller orchestration (secondary owner)**
-   - Runtime must ensure startup-critical lanes are eventually drained in expected lifecycle windows.
-   - If normal boot intentionally limits to `pre_cmd`, orchestration needs explicit reconciliation for startup lanes to prevent orphaned preMenu archives.
+2. **Caller / orchestration layer (primary ownership for runtime behavior)**
+   - Owns boot lifecycle sequencing and guarantees that required lanes are drained at the right times.
+   - Must ensure narrowing from all-mode to pre_cmd-only does not strand startup-critical work.
 
-3. **Unpacker eligibility (supporting owner)**
-   - Keep `.7z.extracting` recovery for robustness.
-   - Eligibility should stay mechanical and mode-scoped; avoid embedding policy-specific lane rules in unpacker.
+3. **`archiveUnpacker.sh` (execution engine ownership)**
+   - Scans mode-selected queues, performs extraction, and handles `.7z`/`.7z.extracting` recovery.
+   - Should remain generic and queue-driven.
+   - Should not embed archive-specific install policy or lane-ownership rules.
 
 ## Immediate containment fix
 
 Low-risk containment to stop repeated xmb.7z eligibility quickly:
 
 1. Fix `runtimeHelper.sh::unstage_archive()` typo (`TARGET_FOLDER` -> `TARGET`) so requested `preCmd` target is respected.
-2. Add one-time migration in startup orchestration (runtime helper) to move known preCmd-owned archives accidentally left in `preMenu` into `preCmd`.
-3. Add logging for lane corrections so field logs clearly show migration decisions.
+2. Optionally add one-time startup relocation for clearly misrouted artifacts discovered in the wrong lane.
+3. Improve logging around lane decisions, relocation, and mode execution to make field diagnosis deterministic.
 
-This contains the loop without turning unpacker into policy logic.
+Containment must remain outside unpacker install policy (no archive-name-specific behavior inside `archiveUnpacker.sh`).
 
 ## Correct architectural fix
 
-Split fix across producer + orchestration; keep unpacker as engine.
+Long-term fix should be split across staging and orchestration, with unpacker kept as engine:
 
 ### Producer staging
 
-- Make staging metadata explicit (archive + intended lane), validated before move.
-- Fail/alert on unknown lane instead of silent fallback to preMenu.
+- Make lane assignment explicit and validated.
+- Enforce lane contract invariants for startup-critical vs command-critical artifacts.
+- Fail loudly (or quarantine) on invalid lane metadata rather than silently defaulting.
 
 ### Caller orchestration
 
-- Define lifecycle contract:
-  - startup-critical lanes consumed during firstboot/recovery,
-  - command-critical lanes consumed before command launch,
-  - orphan detection for archives present in a lane not scheduled for current boot phase.
-- If normal boot remains `pre_cmd` only, add cheap orphan detector that logs and optionally schedules safe deferred all-mode drain at controlled point.
+- Define and enforce lifecycle drain contract per boot phase.
+- If normal boot remains pre_cmd-only, add explicit orchestration for startup-lane reconciliation at controlled lifecycle points.
+- Add orphan-lane detection/telemetry so stranded archives are surfaced before user-visible loops.
 
 ### Unpacker
 
 - Keep mode-based scan boundaries and `.extracting` recovery.
-- Optionally return structured status (or marker files) for caller observability, but avoid policy branching by archive name/ownership.
+- Optionally expose better status signaling for callers.
+- Do not add archive-specific install policy logic.
 
 ## Concrete patch plan
 
-1. **Fix mis-staging bug** in `runtimeHelper.sh`.
-2. **Add regression tests** (shell tests) for `unstage_archive`:
+1. **Fix staging bug** in `runtimeHelper.sh` (`TARGET_FOLDER` -> `TARGET`).
+2. **Add regression tests** (shell tests) for `unstage_archive` target behavior:
    - passing `preCmd` stages into `archives/preCmd`.
-   - default/invalid lane goes to `preMenu` only by explicit rule.
-3. **Add startup orphan check** in runtime:
-   - detect preCmd-owned archive patterns in `preMenu` and relocate/log.
-4. **Add lifecycle test matrix**:
-   - Development-style all-mode boot,
-   - arkun-dev pre_cmd-only normal boot,
-   - firstboot recovery with leftover startup archives,
-   - interrupted `.7z.extracting` recovery.
-5. **Audit non-runtime callers** (ThemeGarden) to ensure post-app all-mode run is intentional and safe.
+   - invalid/empty target behavior is explicit and tested.
+3. **Add orchestration guardrails** in runtime:
+   - detect/telemetry for unexpected residual startup-lane archives when boot path is pre_cmd-only.
+   - optional one-time relocation for known wrong-lane artifacts.
+4. **Define lane contract documentation** (artifact class -> lane -> required drain phase).
+5. **Audit non-runtime all-mode callers** (ThemeGarden and other explicit all-mode invocations) to confirm they are intentional and lifecycle-safe.
 
 ## Validation plan
 
 1. Unit-style shell tests for `unstage_archive` target behavior.
 2. Integration boot simulations with temp dirs:
-   - stage `xmb.7z` as preCmd-owned; verify it reaches preCmd and is consumed in `pre_cmd` mode.
-   - simulate interrupted extract (`.7z.extracting`) and ensure one successful recovery removes archive.
-3. Verify firstboot completion markers are not invalidated by mis-staged preCmd artifacts.
-4. Verify repeated eligibility is gone:
-   - run runtime normal boot twice,
+   - stage `xmb.7z` under historical preCmd assumptions and verify expected behavior under each boot mode.
+   - verify wrong-lane staged archives are detected and handled by orchestration guardrails.
+   - simulate interrupted extract (`.7z.extracting`) and ensure recovery is single-pass and convergent.
+3. Branch-mode parity checks:
+   - Development-style all-mode normal boot behavior.
+   - arkun-dev pre_cmd-only normal boot behavior with lane contract enforcement.
+4. Verify firstboot completion markers are not invalidated by avoidable lane-orchestration mismatches.
+5. Repeatability test:
+   - run normal boot twice,
    - run ThemeGarden exit hook,
-   - confirm no residual `xmb.7z` / `.extracting` in startup lanes unless extract genuinely failed.
-5. Log verification:
-   - confirm clear entries for stage lane decision, relocation, and unpack mode execution.
+   - confirm no repeated xmb.7z eligibility unless extraction genuinely failed.
+6. Log verification:
+   - confirm clear entries for lane assignment, relocation (if applied), caller mode, and unpacker recovery decisions.
