@@ -34,18 +34,25 @@ while [ 1 ]; do
         low_battery_check       # Check for the low_battery flag and warn user if so
 
         # This is to mostly to allow themes to unpack before hitting the menu so they are immediately visible to PyUI
+        log_message "principal.sh: waiting for pre_menu_unpacking before PyUI launch"
         finish_unpacking "pre_menu_unpacking"
+        log_message "principal.sh: pre_menu_unpacking complete"
 
+        log_message "principal.sh: prepare_for_pyui_launch begin"
         prepare_for_pyui_launch
+        log_message "principal.sh: prepare_for_pyui_launch complete; launching PyUI"
 
         log_activity_event "PyUI" "START"
         /mnt/SDCARD/App/PyUI/launch.sh
         log_activity_event "PyUI" "STOP"
+        log_message "principal.sh: PyUI returned to principal loop"
 
         post_pyui_exit
 
         # This is to block any games from launching before all necessary assets such as cores have been unpacked
+        log_message "principal.sh: waiting for pre_cmd_unpacking before command handling"
         finish_unpacking "pre_cmd_unpacking"
+        log_message "principal.sh: pre_cmd_unpacking complete"
 
         spruce/scripts/applySetting/idlemon_mm.sh &
 

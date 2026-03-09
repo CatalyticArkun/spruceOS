@@ -26,7 +26,9 @@ if command -v power_trace_emit >/dev/null 2>&1; then
     power_trace_emit "BOOT_BEGIN" "AUTO" "BOOTING" "BOOTING" "runtime_start" "runtime.sh:startup" "runtime startup sequence entered" "" "" "" "$(flag_check save_active && echo true || echo false)" "" "" || true
 fi
 
+log_message "runtime.sh: milestone run_sd_card_fix_if_triggered (begin)"
 run_sd_card_fix_if_triggered    # do this before anything else
+log_message "runtime.sh: milestone run_sd_card_fix_if_triggered (end)"
 set_performance
 device_init
 set_volume_to_config &
@@ -42,18 +44,34 @@ unstage_archives_wanted
 check_and_handle_firmware_app &
 check_and_hide_update_app &
 
+# Recover from stale pseudo-sleep ownership markers left by unclean shutdown/reboot.
+for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after /tmp/sleep_helper_started /tmp/power_pressed_flag /tmp/powerbtn /tmp/powerbtn_cancelled; do
+    if [ -e "$stale_file" ]; then
+        log_message "runtime.sh: clearing stale power state marker ${stale_file}"
+        rm -f "$stale_file"
+    fi
+done
+
 # Check for first_boot flags and run Unpacker accordingly
+log_message "runtime.sh: milestone archive_unpack_boot_gate (checking first_boot_${PLATFORM})"
 if flag_check "first_boot_${PLATFORM}"; then
+    log_message "runtime.sh: launching archiveUnpacker.sh --silent in background (first boot path)"
     /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent &
     log_message "Unpacker started silently in background due to first_boot flag"
+    log_message "runtime.sh: launching firstboot.sh (foreground)"
     "/mnt/SDCARD/spruce/scripts/firstboot.sh"
+    log_message "runtime.sh: firstboot.sh completed"
 else
+    log_message "runtime.sh: launching archiveUnpacker.sh (foreground)"
     /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh
+    log_message "runtime.sh: archiveUnpacker.sh foreground run completed"
 fi
 
 /mnt/SDCARD/spruce/scripts/set_up_swap.sh &
 
+log_message "runtime.sh: milestone launch_startup_watchdogs (begin)"
 launch_startup_watchdogs
+log_message "runtime.sh: milestone launch_startup_watchdogs (end)"
 
 # run automation-first diagnostics in background only when explicitly enabled
 if flag_check "RUN_STARTTIME_DIAGNOSTICS"; then
@@ -88,5 +106,6 @@ if command -v power_trace_emit >/dev/null 2>&1; then
 fi
 
 # start main loop
+log_message "runtime.sh: BOOT_COMPLETE emitted; starting principal loop next"
 log_message "Starting main loop"
 /mnt/SDCARD/spruce/scripts/principal.sh
