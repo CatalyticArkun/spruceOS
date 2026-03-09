@@ -5,6 +5,16 @@
 log_message "power_button_watchdog_v2.sh: Started up."
 
 
+shutdown_pending_now() {
+    if command -v power_trace_shutdown_pending >/dev/null 2>&1; then
+        if power_trace_shutdown_pending; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 reset_power_button_state() {
     rm -f /tmp/powerbtn /tmp/powerbtn_cancelled
 
@@ -61,8 +71,15 @@ power_key_up () {
         fi
 
         if [ "$was_cancelled" = false ]; then
-            log_message "power_button_watchdog_v2.sh: invoking sleep_helper.sh after uncancelled short press"
-            /mnt/SDCARD/spruce/scripts/sleep_helper.sh
+            if shutdown_pending_now; then
+                # Long-press shutdown may have already emitted SHUTDOWN_BEGIN;
+                # once pending, key-release must not route into sleep_helper.
+                log_message "power_button_watchdog_v2.sh: suppressing short-press sleep because shutdown is pending"
+                power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "short_press_ignored_shutdown_pending" "power_button_watchdog_v2.sh:power_key_up" "sleep suppressed because shutdown already pending" "" "normal" "" "" "" ""
+            else
+                log_message "power_button_watchdog_v2.sh: invoking sleep_helper.sh after uncancelled short press"
+                /mnt/SDCARD/spruce/scripts/sleep_helper.sh watchdog_short_press
+            fi
         fi
     fi
 
@@ -83,6 +100,8 @@ power_key_down () {
             if [ -e /tmp/powerbtn ] && [ ! -e /tmp/powerbtn_cancelled ]; then
                 log_message "power_button_watchdog_v2.sh: Powering off due to power button hold."
                 power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "power_button_hold" "power_button_watchdog_v2.sh:power_key_down" "long press requested poweroff" "" "forced" "autosave_expected" "" "" ""
+                touch /tmp/power_shutdown_requested
+                log_message "power_button_watchdog_v2.sh: marked /tmp/power_shutdown_requested before poweroff handoff"
                 vibrate &
                 rm -f /tmp/powerbtn
                 rm -f /tmp/powerbtn_cancelled

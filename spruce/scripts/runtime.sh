@@ -19,12 +19,36 @@ rotate_logs
 log_file="/mnt/SDCARD/Saves/spruce/spruce.log" # Resetting log file location
 log_message "---------Starting up---------"
 
+if command -v power_trace_shutdown_pending >/dev/null 2>&1; then
+    if power_trace_shutdown_pending; then
+        log_message "runtime.sh: startup detected power_trace shutdown pending marker before boot reconcile"
+    fi
+fi
+
 if command -v power_trace_boot_reconcile_pending >/dev/null 2>&1; then
     power_trace_boot_reconcile_pending || true
 fi
 if command -v power_trace_emit >/dev/null 2>&1; then
     power_trace_emit "BOOT_BEGIN" "AUTO" "BOOTING" "BOOTING" "runtime_start" "runtime.sh:startup" "runtime startup sequence entered" "" "" "" "$(flag_check save_active && echo true || echo false)" "" "" || true
 fi
+
+if flag_check "save_active"; then
+    save_active_state="true"
+else
+    save_active_state="false"
+fi
+if [ -f "$FLAGS_DIR/lastgame.lock" ]; then
+    lastgame_state="present"
+else
+    lastgame_state="missing"
+fi
+if [ -f "$FLAGS_DIR/lastgame.lock" ]; then
+    lastgame_preview="$(head -n 1 "$FLAGS_DIR/lastgame.lock" 2>/dev/null)"
+else
+    lastgame_preview=""
+fi
+log_message "runtime.sh: startup state snapshot save_active=${save_active_state} lastgame_lock=${lastgame_state} cmd_to_run=$([ -f /tmp/cmd_to_run.sh ] && echo present || echo missing)"
+log_message "runtime.sh: startup lastgame.lock preview=${lastgame_preview}"
 
 log_message "runtime.sh: milestone run_sd_card_fix_if_triggered (begin)"
 run_sd_card_fix_if_triggered    # do this before anything else
@@ -45,7 +69,7 @@ check_and_handle_firmware_app &
 check_and_hide_update_app &
 
 # Recover from stale pseudo-sleep ownership markers left by unclean shutdown/reboot.
-for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after /tmp/sleep_helper_started /tmp/power_pressed_flag /tmp/powerbtn /tmp/powerbtn_cancelled; do
+for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after /tmp/sleep_helper_started /tmp/power_pressed_flag /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_shutdown_requested; do
     if [ -e "$stale_file" ]; then
         log_message "runtime.sh: clearing stale power state marker ${stale_file}"
         rm -f "$stale_file"
@@ -75,6 +99,7 @@ log_message "runtime.sh: milestone launch_startup_watchdogs (end)"
 
 # run automation-first diagnostics in background only when explicitly enabled
 if flag_check "RUN_STARTTIME_DIAGNOSTICS"; then
+    touch /tmp/run_starttime_diagnostics_boot_init
     /mnt/SDCARD/spruce/scripts/diagnostics/runner.sh >/dev/null 2>&1 &
     log_message "Start-time diagnostics enabled (RUN_STARTTIME_DIAGNOSTICS)."
 else

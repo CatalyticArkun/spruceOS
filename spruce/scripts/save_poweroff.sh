@@ -47,6 +47,11 @@ else
     power_trace_emit_shutdown_begin_once
 fi
 
+touch /tmp/power_shutdown_requested
+log_message "save_poweroff.sh: marked /tmp/power_shutdown_requested at shutdown entry"
+
+shutdown_had_emu=false
+
 ##### FUNCTION DEFINITIONS ####################
 
 blink_led_if_applicable() {
@@ -281,15 +286,31 @@ kill_remaining_background_processes() {
 }
 
 clean_up_flags() {
-    # Set flag to trigger autoresume on boot if appropriate
+    # Preserve autoresume only when shutdown came from an active game context
+    # and we still have a command to resume.
     if flag_check "in_menu"; then
+        # Menu-origin shutdown should not seed autoresume into a stale/ambiguous target,
+        # while game-origin shutdown may preserve resume state when context is valid.
         flag_remove "save_active"
-    else
+        rm -f "${FLAGS_DIR}/lastgame.lock"
+        log_message "save_poweroff.sh: clean_up_flags -> in_menu=true, save_active cleared, lastgame.lock cleared"
+    elif [ "$shutdown_had_emu" = "true" ] && [ -f "${FLAGS_DIR}/lastgame.lock" ]; then
         flag_add "save_active"
+        log_message "save_poweroff.sh: clean_up_flags -> shutdown_had_emu=true and lastgame.lock present, save_active set"
+    else
+        flag_remove "save_active"
+        log_message "save_poweroff.sh: clean_up_flags -> not preserving autoresume (shutdown_had_emu=${shutdown_had_emu}, lastgame_lock=$([ -f "${FLAGS_DIR}/lastgame.lock" ] && echo present || echo missing))"
     fi
     flag_remove "sleep.powerdown"
     flag_remove "emulator_launched"
     flag_remove "setting_cpu" # in case one of the set_cpu_mode() functions got interrupted
+
+    if flag_check "in_menu"; then
+        in_menu_state="true"
+    else
+        in_menu_state="false"
+    fi
+    log_message "save_poweroff.sh: autoresume decision summary save_active=$([ -f "${FLAGS_DIR}/save_active.lock" ] && echo true || echo false) lastgame_lock=$([ -f "${FLAGS_DIR}/lastgame.lock" ] && echo present || echo missing) shutdown_had_emu=${shutdown_had_emu} in_menu=${in_menu_state}"
 }
 
 exec_shutdown_stage_2() {
@@ -335,9 +356,16 @@ trap 'rm -f "$PIDFILE"' EXIT INT TERM
 blink_led_if_applicable
 device_prepare_for_poweroff
 log_activity_event "$(get_current_app)" "STOP"
+# Sample emulator context before watchdog/process teardown so gameplay-origin
+# shutdowns are not misclassified if emulators exit during shutdown sequencing.
+if any_emu_is_running; then
+    shutdown_had_emu=true
+    log_message "save_poweroff.sh: preflight detected active emulator context"
+fi
 stop_problematic_scripts
 
 if any_emu_is_running; then
+    shutdown_had_emu=true
     dismiss_active_emu_menu_state
     attempt_to_close_emu_gracefully
     wait_for_graceful_emu_exit
