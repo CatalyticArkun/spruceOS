@@ -7,9 +7,13 @@ start_pyui_message_writer
 
 FIRSTBOOT_FLAG="first_boot_$PLATFORM"
 FIRSTBOOT_IN_PROGRESS_FLAG="first_boot_${PLATFORM}_in_progress"
+FIRSTBOOT_COMPLETE_FLAG="first_boot_${PLATFORM}_complete"
+FIRSTBOOT_COMPLETE_VERIFIED_FLAG="first_boot_${PLATFORM}_complete_verified"
 
+flag_remove "$FIRSTBOOT_COMPLETE_FLAG"
+flag_remove "$FIRSTBOOT_COMPLETE_VERIFIED_FLAG"
 flag_add "$FIRSTBOOT_IN_PROGRESS_FLAG"
-log_message "firstboot.sh: entered on $PLATFORM (set ${FIRSTBOOT_IN_PROGRESS_FLAG})"
+log_message "firstboot.sh: entered (set in-progress)"
 
 WIKI_ICON="/mnt/SDCARD/spruce/imgs/book.png"
 HAPPY_ICON="/mnt/SDCARD/spruce/imgs/smile.png"
@@ -89,7 +93,9 @@ fi
 display_image_and_text "$HAPPY_ICON" 35 25 "Happy gaming.........." 75
 sleep 5
 
-log_message "firstboot.sh: required work complete; clearing ${FIRSTBOOT_FLAG} and ${FIRSTBOOT_IN_PROGRESS_FLAG}"
+log_message "firstboot.sh: required work complete; setting complete marker"
 flag_remove "$FIRSTBOOT_FLAG"
 flag_remove "$FIRSTBOOT_IN_PROGRESS_FLAG"
+flag_remove "$FIRSTBOOT_COMPLETE_VERIFIED_FLAG"
+flag_add "$FIRSTBOOT_COMPLETE_FLAG"
 log_message "Finished firstboot script"
