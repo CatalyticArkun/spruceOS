@@ -2,10 +2,22 @@
 
 . /mnt/SDCARD/spruce/scripts/helperFunctions.sh
 
+SLEEP_INVOCATION_SOURCE="${1:-unknown_source}"
+
+shutdown_pending_now() {
+    command -v power_trace_shutdown_pending >/dev/null 2>&1 && power_trace_shutdown_pending
+}
+
+if shutdown_pending_now; then
+    log_message "sleep_helper.sh: suppressing sleep invocation because shutdown is pending (source=${SLEEP_INVOCATION_SOURCE})"
+    power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "sleep_invocation_suppressed_shutdown_pending" "sleep_helper.sh:entry" "sleep suppressed while shutdown pending source=${SLEEP_INVOCATION_SOURCE}" "" "normal" "" "" "" ""
+    exit 0
+fi
+
 if [ -e /tmp/sleep_helper_started ]; then
     existing_pid=$(cat /tmp/sleep_helper_started 2>/dev/null)
     if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
-        log_message "Sleep helper already active (pid=${existing_pid}), skipping duplicate invocation." -v
+        log_message "Sleep helper already active (pid=${existing_pid}), skipping duplicate invocation (source=${SLEEP_INVOCATION_SOURCE})." -v
         exit 0
     fi
     log_message "Sleep helper found stale /tmp/sleep_helper_started (pid=${existing_pid:-unknown}); clearing and continuing."
@@ -15,7 +27,7 @@ fi
 current_app="$(get_current_app)"
 log_activity_event "$current_app" "STOP"
 
-log_message "Sleep helper starting up..."
+log_message "Sleep helper starting up (source=${SLEEP_INVOCATION_SOURCE})..."
 rm -f /tmp/power_pressed_flag
 
 echo "$$" > /tmp/sleep_helper_started
@@ -86,7 +98,7 @@ get_shutdown_timer() {
 
 
 trigger_sleep() {
-    power_trace_emit "SLEEP_PREPARE_BEGIN" "AUTO" "SLEEPING" "RUNNING" "power_button" "sleep_helper.sh:trigger_sleep" "sleep helper invoked" "" "" "autosave_possible" "" "" ""
+    power_trace_emit "SLEEP_PREPARE_BEGIN" "AUTO" "SLEEPING" "RUNNING" "power_button" "sleep_helper.sh:trigger_sleep" "sleep helper invoked source=${SLEEP_INVOCATION_SOURCE}" "" "" "autosave_possible" "" "" ""
     log_message "Entering sleep"
     lid_ever_closed=false
     sleep_exited=false

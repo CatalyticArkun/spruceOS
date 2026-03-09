@@ -85,6 +85,17 @@ if [ "$RUN_MODE" = "all" ] &&
     exit 0
 fi
 
+if flag_check "save_active"; then
+    unpacker_save_active="true"
+else
+    unpacker_save_active="false"
+fi
+if [ -f "$FLAGS_DIR/lastgame.lock" ]; then
+    unpacker_lastgame="present"
+else
+    unpacker_lastgame="missing"
+fi
+log_message "Unpacker: startup context run_mode=${RUN_MODE} save_active=${unpacker_save_active} lastgame_lock=${unpacker_lastgame}"
 log_message "Unpacker: Starting theme and archive unpacking process"
 
 # Process archives based on run mode
@@ -93,8 +104,10 @@ case "$RUN_MODE" in
     unpack_archives "$THEME_DIR"
     unpack_archives "$ARCHIVE_DIR/preMenu" "pre_menu_unpacking"
     if flag_check "save_active"; then
+        log_message "Unpacker: preCmd unpack running in foreground because save_active=true (autoresume-sensitive boot)"
         unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking"
     else
+        log_message "Unpacker: preCmd unpack running in background because save_active=false"
         flag_add "silentUnpacker" --tmp
         unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking" &
     fi
