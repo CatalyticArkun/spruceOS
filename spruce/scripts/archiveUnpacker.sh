@@ -20,7 +20,7 @@ if flag_check "silentUnpacker"; then
     exit 0
 fi
 
-log_message "Unpacker: Script started"
+log_message "Unpacker: Script started (mode arg: ${1:-all})"
 
 cleanup() {
     flag_remove "silentUnpacker"
@@ -51,6 +51,7 @@ unpack_archives() {
     local flag_name="$2"
 
     [ -n "$flag_name" ] && flag_add "$flag_name" --tmp
+    log_message "Unpacker: scanning ${dir} (flag=${flag_name:-none})"
 
     for archive in "$dir"/*.7z; do
         if [ -f "$archive" ]; then
@@ -71,6 +72,7 @@ unpack_archives() {
     done
 
     [ -n "$flag_name" ] && flag_remove "$flag_name"
+    log_message "Unpacker: finished scanning ${dir} (flag=${flag_name:-none})"
 }
 
 # Quick check for .7z files in relevant directories

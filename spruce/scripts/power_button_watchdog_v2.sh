@@ -22,6 +22,7 @@ watchdog_suspended_or_not_rearmed() {
             log_message "power_button_watchdog_v2.sh: Found stale power_watchdog_suspended, clearing."
             rm -f /tmp/power_watchdog_suspended
         else
+            log_message "power_button_watchdog_v2.sh: Suppressing power event stream while sleep_helper owns wake handling."
             return 0
         fi
     fi
@@ -31,6 +32,7 @@ watchdog_suspended_or_not_rearmed() {
         now=$(date +%s)
 
         if [ -n "$rearm_at" ] && [ "$now" -lt "$rearm_at" ] 2>/dev/null; then
+            log_message "power_button_watchdog_v2.sh: Suppressing power events until rearm boundary ${rearm_at} (now=${now})."
             return 0
         fi
 
@@ -59,6 +61,7 @@ power_key_up () {
         fi
 
         if [ "$was_cancelled" = false ]; then
+            log_message "power_button_watchdog_v2.sh: invoking sleep_helper.sh after uncancelled short press"
             /mnt/SDCARD/spruce/scripts/sleep_helper.sh
         fi
     fi

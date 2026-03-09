@@ -3,8 +3,13 @@
 . /mnt/SDCARD/spruce/scripts/helperFunctions.sh
 
 if [ -e /tmp/sleep_helper_started ]; then
-    log_message "Sleep helper already active, skipping. /tmp/sleep_helper_started exists" -v
-    exit 0 
+    existing_pid=$(cat /tmp/sleep_helper_started 2>/dev/null)
+    if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+        log_message "Sleep helper already active (pid=${existing_pid}), skipping duplicate invocation." -v
+        exit 0
+    fi
+    log_message "Sleep helper found stale /tmp/sleep_helper_started (pid=${existing_pid:-unknown}); clearing and continuing."
+    rm -f /tmp/sleep_helper_started
 fi
 
 current_app="$(get_current_app)"
@@ -13,7 +18,7 @@ log_activity_event "$current_app" "STOP"
 log_message "Sleep helper starting up..."
 rm -f /tmp/power_pressed_flag
 
-touch /tmp/sleep_helper_started
+echo "$$" > /tmp/sleep_helper_started
 
 if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
     # During pseudo-sleep, watchdog must not co-own power input semantics.
@@ -48,8 +53,9 @@ power_button_pressed() {
 }
 
 cleanup_sleep_helper() {
+    log_message "sleep_helper.sh: cleanup (pid=$$, getevent_pid=${GET_EVENT_PID:-none})" -v
     kill "$GET_EVENT_PID" 2>/dev/null
-    rm -f "$POWER_BUTTON_PIPE" /tmp/power_watchdog_suspended /tmp/sleep_helper_started
+    rm -f "$POWER_BUTTON_PIPE" /tmp/power_watchdog_suspended /tmp/sleep_helper_started /tmp/power_pressed_flag
 }
 
 # Clean up on exit
@@ -203,7 +209,7 @@ if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
     #   this settle boundary has elapsed.
     watchdog_rearm_at=$(( $(date +%s) + 3 ))
     echo "$watchdog_rearm_at" > /tmp/power_watchdog_rearm_after
-    log_message "Set watchdog rearm boundary at epoch ${watchdog_rearm_at}"
+    log_message "sleep_helper.sh: Set watchdog rearm boundary at epoch ${watchdog_rearm_at}"
 else
     rm -f /tmp/power_watchdog_rearm_after
 fi
