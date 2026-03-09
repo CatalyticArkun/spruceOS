@@ -64,6 +64,29 @@ How this exposes the regression:
 - Under arkun-dev, pre_cmd-only normal boot no longer drains startup lanes broadly; any lane mismatch or misrouting leaves archives resident longer and repeatedly eligible when an all-mode caller later runs (firstboot/recovery, ThemeGarden exit, or manual all-mode invocation).
 - `.7z.extracting` recovery and silent pre_cmd worker changes affect retry/recovery mechanics, but they are not the root install-policy defect.
 
+Evaluation of trigger strength:
+- Current evidence indicates the **observable regression trigger** is the orchestration narrowing from all-mode to pre_cmd on normal boot.
+- Restoring broader lane draining on normal boot would likely eliminate the repeated-eligibility symptom in most cases by converging startup queues every boot.
+- This does not remove latent design debt (lane mismatch + staging bug), but it reduces user-visible persistence loops while those defects are corrected.
+
+### Alternative Remediation Strategy: Restore Development-Style Lane Draining
+
+Development-era normal boot drained startup lanes aggressively (`RUN_MODE=all`), which both masked lane-contract fragility and ensured practical convergence of queued archives.
+
+Potential benefits of restoring this behavior:
+- Simpler operational model: one normal-boot path drains all startup lanes.
+- Lower risk of stranded archives when staging/lane metadata is imperfect.
+- Avoids adding install-policy complexity inside `archiveUnpacker.sh`.
+- Likely resolves xmb.7z persistence/re-eligibility symptom quickly.
+
+Potential downsides:
+- More boot-time extraction work, even when only preCmd content is strictly required.
+- More frequent archive scanning may increase startup cost on slow SD cards.
+- On resource-constrained devices, broader extraction attempts can increase transient runtime pressure.
+
+Overall assessment:
+- As a containment/stabilization move, reverting normal boot toward Development-style all-lane draining is low-risk architecturally and keeps policy in orchestration, not in unpacker internals.
+
 ## Regression Trigger vs Latent Design Debt
 
 - **Why the system worked before:**
@@ -72,6 +95,18 @@ How this exposes the regression:
   - arkun-dev narrowed normal boot to `pre_cmd`, so only one lane is drained by default; latent lane mismatches and staging errors became externally visible as repeated eligibility.
 - **Why unpacker is not root cause:**
   - `archiveUnpacker.sh` executes queue extraction for requested lanes/modes. It does not decide archive lifecycle ownership or lane policy and should not become archive-name policy logic.
+
+## Extraction Reliability on MiyooMini-Class Devices
+
+MiyooMini-family hardware operates with tight RAM margins, and this materially affects extraction reliability:
+
+- `7zr x` can fail or be interrupted under memory pressure, especially when multiple startup tasks overlap.
+- Persistent `.7z.extracting` files may therefore represent interrupted extraction/recovery state, not only lane-policy defects.
+- Development’s broader all-lane draining may have masked some of this by retrying and converging queues more often across boots.
+
+Interpretation:
+- Memory pressure is a **secondary contributing factor** and an amplifier of persistence behavior.
+- Current evidence does **not** prove memory pressure is the primary root cause of the branch regression; orchestration narrowing remains the leading trigger.
 
 ## Ownership by layer
 
@@ -84,22 +119,44 @@ Per architectural rule (`archiveUnpacker.sh` is an execution engine, not an inst
 
 2. **Caller / orchestration layer (primary ownership for runtime behavior)**
    - Owns boot lifecycle sequencing and guarantees that required lanes are drained at the right times.
-   - Must ensure narrowing from all-mode to pre_cmd-only does not strand startup-critical work.
+   - Owns the decision to drain all lanes (`RUN_MODE=all`) vs narrowed drains (`RUN_MODE=pre_cmd`) per boot phase.
+   - Must ensure narrowing does not strand startup-critical work.
 
 3. **`archiveUnpacker.sh` (execution engine ownership)**
    - Scans mode-selected queues, performs extraction, and handles `.7z`/`.7z.extracting` recovery.
+   - Coordinates unpack concurrency safely.
    - Should remain generic and queue-driven.
-   - Should not embed archive-specific install policy or lane-ownership rules.
+   - Should not embed archive-specific install policy or artifact ownership rules.
 
 ## Immediate containment fix
 
-Low-risk containment to stop repeated xmb.7z eligibility quickly:
+Two viable containment paths:
 
-1. Fix `runtimeHelper.sh::unstage_archive()` typo (`TARGET_FOLDER` -> `TARGET`) so requested `preCmd` target is respected.
-2. Optionally add one-time startup relocation for clearly misrouted artifacts discovered in the wrong lane.
-3. Improve logging around lane decisions, relocation, and mode execution to make field diagnosis deterministic.
+### Option A — Restore Development-style behavior (preferred stabilization path)
 
-Containment must remain outside unpacker install policy (no archive-name-specific behavior inside `archiveUnpacker.sh`).
+1. Change normal boot back to all-lane drain (`archiveUnpacker.sh` default/all mode).
+2. Keep firstboot/recovery all-mode behavior intact.
+3. Pair with staging typo fix and improved logging.
+
+Rationale:
+- Fastest route to convergence.
+- Lowest risk of introducing new policy logic.
+- Aligns with proven historical behavior.
+
+### Option B — Keep `pre_cmd` narrowing but strengthen orchestration
+
+1. Retain `archiveUnpacker.sh pre_cmd` on normal boot.
+2. Add explicit orchestration windows that drain startup lanes (`Themes`/`preMenu`) at controlled lifecycle points.
+3. Add startup lane-residue detection and deterministic remediation.
+
+Rationale:
+- Preserves reduced normal-boot scope.
+- Requires tighter orchestration contracts and higher lifecycle complexity.
+
+Common requirements for either option:
+- Fix `runtimeHelper.sh::unstage_archive()` typo (`TARGET_FOLDER` -> `TARGET`).
+- Improve logging for lane decisions, `.7z.extracting` recovery, and extraction failures.
+- Do not implement archive-name-specific install policy in `archiveUnpacker.sh`.
 
 ## Correct architectural fix
 
@@ -114,41 +171,61 @@ Long-term fix should be split across staging and orchestration, with unpacker ke
 ### Caller orchestration
 
 - Define and enforce lifecycle drain contract per boot phase.
-- If normal boot remains pre_cmd-only, add explicit orchestration for startup-lane reconciliation at controlled lifecycle points.
+- Choose and document a stable strategy:
+  - either Development-style all-lane normal boot,
+  - or narrowed normal boot with explicit scheduled startup-lane drains.
 - Add orphan-lane detection/telemetry so stranded archives are surfaced before user-visible loops.
 
 ### Unpacker
 
 - Keep mode-based scan boundaries and `.extracting` recovery.
-- Optionally expose better status signaling for callers.
+- Improve diagnostics and status signaling for callers.
 - Do not add archive-specific install policy logic.
 
 ## Concrete patch plan
 
 1. **Fix staging bug** in `runtimeHelper.sh` (`TARGET_FOLDER` -> `TARGET`).
-2. **Add regression tests** (shell tests) for `unstage_archive` target behavior:
-   - passing `preCmd` stages into `archives/preCmd`.
-   - invalid/empty target behavior is explicit and tested.
-3. **Add orchestration guardrails** in runtime:
-   - detect/telemetry for unexpected residual startup-lane archives when boot path is pre_cmd-only.
-   - optional one-time relocation for known wrong-lane artifacts.
-4. **Define lane contract documentation** (artifact class -> lane -> required drain phase).
-5. **Audit non-runtime all-mode callers** (ThemeGarden and other explicit all-mode invocations) to confirm they are intentional and lifecycle-safe.
+2. **Evaluate normal-boot invocation strategy**:
+   - Candidate revert to Development-style:
+     - `archiveUnpacker.sh`
+   - Instead of narrowed mode:
+     - `archiveUnpacker.sh pre_cmd`
+3. **If pre_cmd narrowing is retained**:
+   - add orchestration guardrails that explicitly drain startup lanes at defined lifecycle points,
+   - add residual-lane detection and deterministic remediation.
+4. **Improve extraction diagnostics**:
+   - log `.7z.extracting` detection and recovery path clearly,
+   - log extraction failure causes distinctly from eligibility/scan decisions,
+   - preserve clear mode/caller provenance in logs.
+5. **Add regression tests** for lane assignment and orchestration behavior:
+   - preCmd target correctness,
+   - startup-lane convergence across selected normal-boot strategy.
 
 ## Validation plan
 
 1. Unit-style shell tests for `unstage_archive` target behavior.
-2. Integration boot simulations with temp dirs:
-   - stage `xmb.7z` under historical preCmd assumptions and verify expected behavior under each boot mode.
-   - verify wrong-lane staged archives are detected and handled by orchestration guardrails.
-   - simulate interrupted extract (`.7z.extracting`) and ensure recovery is single-pass and convergent.
-3. Branch-mode parity checks:
-   - Development-style all-mode normal boot behavior.
-   - arkun-dev pre_cmd-only normal boot behavior with lane contract enforcement.
-4. Verify firstboot completion markers are not invalidated by avoidable lane-orchestration mismatches.
-5. Repeatability test:
-   - run normal boot twice,
-   - run ThemeGarden exit hook,
-   - confirm no repeated xmb.7z eligibility unless extraction genuinely failed.
-6. Log verification:
-   - confirm clear entries for lane assignment, relocation (if applied), caller mode, and unpacker recovery decisions.
+2. Boot-path matrix tests:
+   - Development-style normal boot (`RUN_MODE=all`).
+   - arkun-dev style normal boot (`RUN_MODE=pre_cmd`).
+   - firstboot/recovery all-mode behavior.
+3. MiyooMini-class low-memory scenarios:
+   - induce constrained-memory extraction conditions,
+   - verify failure logging, retry behavior, and eventual convergence.
+4. `.7z.extracting` recovery convergence tests:
+   - simulate interrupted extraction,
+   - verify recovery converges and does not loop indefinitely.
+5. Repeated-cycle tests:
+   - multiple consecutive boots,
+   - ThemeGarden exit all-mode invocation,
+   - confirm no persistent xmb.7z re-eligibility absent real extraction failure.
+6. Lane-integrity tests:
+   - verify staging bugs do not strand artifacts in the wrong lane after fix,
+   - verify orchestration drains required lanes per selected strategy.
+7. Log verification:
+   - confirm clear records for lane assignment, caller mode, extraction start/fail/success, and recovery decisions.
+
+## Uncertainty note
+
+Current evidence indicates the primary regression trigger is the normal-boot orchestration change in arkun-dev (`all` -> `pre_cmd`).
+
+However, low-memory extraction failures on MiyooMini-class hardware and latent staging bugs can amplify persistence symptoms. Validation should explicitly monitor both factors while evaluating containment choice (Option A vs Option B).
