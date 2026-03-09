@@ -47,6 +47,9 @@ else
     power_trace_emit_shutdown_begin_once
 fi
 
+touch /tmp/power_shutdown_requested
+log_message "save_poweroff.sh: marked /tmp/power_shutdown_requested at shutdown entry"
+
 ##### FUNCTION DEFINITIONS ####################
 
 blink_led_if_applicable() {
@@ -284,8 +287,10 @@ clean_up_flags() {
     # Set flag to trigger autoresume on boot if appropriate
     if flag_check "in_menu"; then
         flag_remove "save_active"
+        log_message "save_poweroff.sh: clean_up_flags -> in_menu=true, save_active cleared"
     else
         flag_add "save_active"
+        log_message "save_poweroff.sh: clean_up_flags -> in_menu=false, save_active set"
     fi
     flag_remove "sleep.powerdown"
     flag_remove "emulator_launched"

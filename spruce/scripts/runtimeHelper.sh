@@ -379,6 +379,12 @@ auto_resume_should_emit_wake_trace() {
 }
 
 auto_resume_game() {
+    if [ -f "${FLAGS_DIR}/lastgame.lock" ]; then
+        log_message "runtimeHelper.sh:auto_resume_game: lastgame.lock present before resume"
+    else
+        log_message "runtimeHelper.sh:auto_resume_game: lastgame.lock missing before resume"
+    fi
+
     if auto_resume_should_emit_wake_trace; then
         power_trace_emit "WAKE_RESUME_BEGIN" "AUTO" "RUNNING" "WAKING" "autoresume" "runtimeHelper.sh:auto_resume_game" "save_active flag triggered autoresume during waking state" "" "" "" "save_active=true" "" ""
     fi

@@ -10,7 +10,7 @@ POWER_TRACE_MAX_SUMMARY_LINES="${POWER_TRACE_MAX_SUMMARY_LINES:-120}"
 
 power_trace_supported_event() {
     case "$1" in
-        BOOT_BEGIN|BOOT_COMPLETE|SHUTDOWN_BEGIN|SHUTDOWN_HANDOFF|SHUTDOWN_COMPLETE|SHUTDOWN_RECOVERED|REBOOT_BEGIN|SLEEP_PREPARE_BEGIN|SLEEP_PREPARE_COMPLETE|SLEEP_REQUESTED|SLEEP_ENTER_BEGIN|SLEEP_ENTER_COMPLETE|WAKE_DETECTED|WAKE_RESUME_BEGIN|WAKE_RESUME_COMPLETE|TRANSITION_ABORTED|TRANSITION_TIMEOUT|INVALID_TRANSITION|POWER_ERROR|UNKNOWN_TRANSITION)
+        BOOT_BEGIN|BOOT_COMPLETE|SHUTDOWN_BEGIN|SHUTDOWN_HANDOFF|SHUTDOWN_COMPLETE|SHUTDOWN_RECOVERED|REBOOT_BEGIN|SLEEP_PREPARE_BEGIN|SLEEP_PREPARE_COMPLETE|SLEEP_REQUESTED|SLEEP_ENTER_BEGIN|SLEEP_ENTER_COMPLETE|WAKE_DETECTED|WAKE_RESUME_BEGIN|WAKE_RESUME_COMPLETE|TRANSITION_ABORTED|TRANSITION_TIMEOUT|REQUEST_SUPPRESSED|DIRTY_STARTUP|INVALID_TRANSITION|POWER_ERROR|UNKNOWN_TRANSITION)
             return 0
             ;;
         *)
@@ -129,7 +129,10 @@ power_trace_validate_transition() {
         WAKE_DETECTED|WAKE_RESUME_BEGIN|WAKE_RESUME_COMPLETE)
             [ "$prev" = "SLEEPING" ] || [ "$prev" = "WAKING" ] || [ "$prev" = "UNKNOWN" ] && return 0
             ;;
-        TRANSITION_ABORTED|TRANSITION_TIMEOUT|POWER_ERROR|UNKNOWN_TRANSITION|INVALID_TRANSITION)
+        DIRTY_STARTUP)
+            [ "$prev" = "UNKNOWN" ] || [ "$prev" = "RUNNING" ] && return 0
+            ;;
+        TRANSITION_ABORTED|TRANSITION_TIMEOUT|REQUEST_SUPPRESSED|POWER_ERROR|UNKNOWN_TRANSITION|INVALID_TRANSITION)
             return 0
             ;;
     esac
@@ -192,7 +195,10 @@ power_trace_apply_snapshot() {
             power_trace_set_snapshot "RUNNING" "WAKE" "RUNNING" "RUNNING" "RUNNING" ""
             power_trace_clear_pending
             ;;
-        TRANSITION_ABORTED|TRANSITION_TIMEOUT|POWER_ERROR|UNKNOWN_TRANSITION|INVALID_TRANSITION)
+        DIRTY_STARTUP)
+            power_trace_set_snapshot "RUNNING" "RUNNING" "RUNNING" "RUNNING" "RUNNING" ""
+            ;;
+        TRANSITION_ABORTED|TRANSITION_TIMEOUT|REQUEST_SUPPRESSED|POWER_ERROR|UNKNOWN_TRANSITION|INVALID_TRANSITION)
             # Diagnostic/meta events should not advance canonical milestones.
             power_trace_set_snapshot "$pt_last_state" "$pt_requested_state" "$pt_intended_state" "$pt_observed_state" "$pt_completed_state" "$pt_active_transition_id"
             ;;
@@ -334,6 +340,25 @@ power_trace_boot_reconcile_pending() {
         power_trace_save_state
         power_trace_clear_pending
     fi
+}
+
+# Shared canonical predicate for callers that must suppress sleep or duplicate
+# shutdown work once shutdown has already begun.
+power_trace_shutdown_pending() {
+    power_trace_load_state
+
+    if [ "${pt_last_state:-}" = "SHUTDOWN_PENDING" ] ||
+        { [ "${pt_requested_state:-}" = "SHUTDOWN" ] && [ "${pt_active_transition_id:-}" != "" ]; }; then
+        return 0
+    fi
+
+    if [ -f "$POWER_TRACE_PENDING_FILE" ]; then
+        # shellcheck disable=SC1090
+        . "$POWER_TRACE_PENDING_FILE"
+        [ "${pending_kind:-}" = "SHUTDOWN" ] && return 0
+    fi
+
+    return 1
 }
 
 power_trace_recent_json() {

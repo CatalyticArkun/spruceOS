@@ -26,13 +26,13 @@ while true; do
         "True") 
             # Detect lid close only
             if [ "$current_state" = "0" ]; then
-                /mnt/SDCARD/spruce/scripts/sleep_helper.sh
+                /mnt/SDCARD/spruce/scripts/sleep_helper.sh lid_watchdog
             fi
             ;;
         "Only when unplugged")
             # Detect lid close and charging state
             if [ "$current_state" = "0" ] && [ "$(device_get_charging_status)" = "Discharging" ]; then
-                /mnt/SDCARD/spruce/scripts/sleep_helper.sh
+                /mnt/SDCARD/spruce/scripts/sleep_helper.sh lid_watchdog
             fi
             ;;
         "False")
