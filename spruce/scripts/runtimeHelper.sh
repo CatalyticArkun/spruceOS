@@ -383,6 +383,9 @@ auto_resume_game() {
         log_message "runtimeHelper.sh:auto_resume_game: lastgame.lock present before resume"
     else
         log_message "runtimeHelper.sh:auto_resume_game: lastgame.lock missing before resume"
+        flag_remove "save_active"
+        log_message "runtimeHelper.sh:auto_resume_game: clearing save_active because no resume command is available"
+        return 0
     fi
 
     if auto_resume_should_emit_wake_trace; then
