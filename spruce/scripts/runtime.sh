@@ -77,12 +77,53 @@ for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after 
 done
 
 # Check for first_boot flags and run Unpacker accordingly
+FIRSTBOOT_FLAG="first_boot_${PLATFORM}"
 FIRSTBOOT_IN_PROGRESS_FLAG="first_boot_${PLATFORM}_in_progress"
-log_message "runtime.sh: milestone archive_unpack_boot_gate (checking first_boot_${PLATFORM} / ${FIRSTBOOT_IN_PROGRESS_FLAG})"
-if flag_check "first_boot_${PLATFORM}" || flag_check "$FIRSTBOOT_IN_PROGRESS_FLAG"; then
-    if flag_check "$FIRSTBOOT_IN_PROGRESS_FLAG" && ! flag_check "first_boot_${PLATFORM}"; then
-        log_message "runtime.sh: detected interrupted firstboot recovery path via ${FIRSTBOOT_IN_PROGRESS_FLAG}"
-        flag_add "first_boot_${PLATFORM}"
+FIRSTBOOT_COMPLETE_FLAG="first_boot_${PLATFORM}_complete"
+FIRSTBOOT_COMPLETE_VERIFIED_FLAG="first_boot_${PLATFORM}_complete_verified"
+
+firstboot_completion_artifacts_look_clean() {
+    if flag_check "pre_menu_unpacking"; then
+        log_message "runtime.sh: firstboot verification failed (pre_menu_unpacking still active)"
+        return 1
+    fi
+
+    if flag_check "pre_cmd_unpacking"; then
+        log_message "runtime.sh: firstboot verification failed (pre_cmd_unpacking still active)"
+        return 1
+    fi
+
+    for startup_dir in /mnt/SDCARD/spruce/archives/preMenu /mnt/SDCARD/spruce/archives/preCmd; do
+        leftover_archive="$(find "$startup_dir" -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) | head -n 1)"
+        if [ -n "$leftover_archive" ]; then
+            log_message "runtime.sh: firstboot verification failed (leftover startup archive: ${leftover_archive})"
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+log_message "runtime.sh: milestone archive_unpack_boot_gate (checking ${FIRSTBOOT_FLAG} / ${FIRSTBOOT_IN_PROGRESS_FLAG} / ${FIRSTBOOT_COMPLETE_FLAG})"
+
+if flag_check "$FIRSTBOOT_COMPLETE_FLAG" && ! flag_check "$FIRSTBOOT_COMPLETE_VERIFIED_FLAG"; then
+    log_message "runtime.sh: found firstboot complete marker; verifying startup artifacts"
+    if firstboot_completion_artifacts_look_clean; then
+        flag_add "$FIRSTBOOT_COMPLETE_VERIFIED_FLAG"
+        log_message "runtime.sh: firstboot completion verified successfully"
+    else
+        log_message "runtime.sh: firstboot completion marker invalidated by leftover startup artifacts; re-entering recovery"
+        flag_remove "$FIRSTBOOT_COMPLETE_FLAG"
+        flag_remove "$FIRSTBOOT_COMPLETE_VERIFIED_FLAG"
+        flag_add "$FIRSTBOOT_FLAG"
+        flag_add "$FIRSTBOOT_IN_PROGRESS_FLAG"
+    fi
+fi
+
+if flag_check "$FIRSTBOOT_FLAG" || (flag_check "$FIRSTBOOT_IN_PROGRESS_FLAG" && ! flag_check "$FIRSTBOOT_COMPLETE_FLAG"); then
+    if flag_check "$FIRSTBOOT_IN_PROGRESS_FLAG" && ! flag_check "$FIRSTBOOT_FLAG"; then
+        log_message "runtime.sh: detected interrupted firstboot recovery path"
+        flag_add "$FIRSTBOOT_FLAG"
     fi
 
     log_message "runtime.sh: launching archiveUnpacker.sh --silent in background (first boot/recovery path)"
