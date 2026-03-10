@@ -60,26 +60,38 @@ sleep 5
 
 perform_fw_check
 
-if flag_check "pre_menu_unpacking" || flag_check "pre_cmd_unpacking"; then
-    display_image_and_text "$UNPACKING_ICON" 35 25 "Finishing up unpacking themes and files.........." 75
-    flag_remove "silentUnpacker"
-fi
+unpacking_wait_ui_shown="false"
 
-if flag_check "pre_menu_unpacking"; then
-    log_message "firstboot.sh: waiting for pre_menu_unpacking to complete"
-    while flag_check "pre_menu_unpacking"; do
-        sleep 0.2
-    done
-    log_message "firstboot.sh: pre_menu_unpacking complete"
-fi
+wait_for_unpack_with_grace() {
+    lock_name="$1"
+    label="$2"
+    grace_checks=15 # 1.5s max to catch slightly-late lock publication
 
-if flag_check "pre_cmd_unpacking"; then
-    log_message "firstboot.sh: waiting for pre_cmd_unpacking to complete"
-    while flag_check "pre_cmd_unpacking"; do
-        sleep 0.2
+    while [ "$grace_checks" -gt 0 ]; do
+        if flag_check "$lock_name"; then
+            if [ "$unpacking_wait_ui_shown" != "true" ]; then
+                display_image_and_text "$UNPACKING_ICON" 35 25 "Finishing up unpacking themes and files.........." 75
+                flag_remove "silentUnpacker"
+                unpacking_wait_ui_shown="true"
+            fi
+
+            log_message "firstboot.sh: waiting for ${label} to complete"
+            while flag_check "$lock_name"; do
+                sleep 0.2
+            done
+            log_message "firstboot.sh: ${label} complete"
+            return 0
+        fi
+
+        grace_checks=$((grace_checks - 1))
+        sleep 0.1
     done
-    log_message "firstboot.sh: pre_cmd_unpacking complete"
-fi
+
+    return 1
+}
+
+wait_for_unpack_with_grace "pre_menu_unpacking" "pre_menu_unpacking"
+wait_for_unpack_with_grace "pre_cmd_unpacking" "pre_cmd_unpacking"
 
 # create splore launcher if it doesn't already exist
 if [ ! -f "$SPLORE_CART" ]; then
