@@ -171,12 +171,24 @@ dim_screen() {
 
 finish_unpacking() {
     flag="$1"
-    if flag_check "$flag"; then
+    observed="false"
+    grace_checks=15 # 1.5s max to catch slightly-late lock publication
+
+    while [ "$grace_checks" -gt 0 ]; do
+        if flag_check "$flag"; then
+            observed="true"
+            break
+        fi
+        grace_checks=$((grace_checks - 1))
+        sleep 0.1
+    done
+
+    if [ "$observed" = "true" ]; then
         start_pyui_message_writer
         log_and_display_message "Finishing up unpacking archives.........."
         flag_remove "silentUnpacker"
-        while [ -f "$FLAGS_DIR/$flag.lock" ]; do
-            : # null operation (no sleep needed)
+        while flag_check "$flag"; do
+            sleep 0.05
         done
         stop_pyui_message_writer
     fi
@@ -1150,4 +1162,3 @@ log_activity_event() {
     printf '{"ts":%s,"event":"%s","app":"%s","pid":%s}\n' \
         "$ts" "$event" "$safe_app" "$pid" >> "$LOG_FILE"
 }
-

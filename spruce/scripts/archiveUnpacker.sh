@@ -22,7 +22,16 @@ fi
 
 log_message "Unpacker: Script started (mode arg: ${1:-all})"
 
+EARLY_PREMENU_LOCK_PUBLISHED="false"
+EARLY_PRECMD_LOCK_PUBLISHED="false"
+
 cleanup() {
+    if [ "$EARLY_PREMENU_LOCK_PUBLISHED" = "true" ]; then
+        flag_remove "pre_menu_unpacking"
+    fi
+    if [ "$EARLY_PRECMD_LOCK_PUBLISHED" = "true" ]; then
+        flag_remove "pre_cmd_unpacking"
+    fi
     flag_remove "silentUnpacker"
 }
 
@@ -138,11 +147,25 @@ log_message "Unpacker: Starting theme and archive unpacking process"
 # Process archives based on run mode
 case "$RUN_MODE" in
 "all")
+    if ! flag_check "pre_menu_unpacking"; then
+        flag_add "pre_menu_unpacking" --tmp
+        EARLY_PREMENU_LOCK_PUBLISHED="true"
+        log_message "Unpacker: published pre_menu_unpacking gate early for startup sequencing"
+    fi
+
+    if flag_check "save_active" && ! flag_check "pre_cmd_unpacking"; then
+        flag_add "pre_cmd_unpacking" --tmp
+        EARLY_PRECMD_LOCK_PUBLISHED="true"
+        log_message "Unpacker: published pre_cmd_unpacking gate early because save_active=true"
+    fi
+
     unpack_archives "$THEME_DIR" "" "themes"
     unpack_archives "$ARCHIVE_DIR/preMenu" "pre_menu_unpacking" "preMenu"
+    EARLY_PREMENU_LOCK_PUBLISHED="false"
     if flag_check "save_active"; then
         log_message "Unpacker: preCmd unpack running in foreground because save_active=true (autoresume-sensitive boot)"
         unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking" "preCmd"
+        EARLY_PRECMD_LOCK_PUBLISHED="false"
     else
         log_message "Unpacker: preCmd unpack running in background via dedicated silent pre_cmd worker because save_active=false"
         /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_cmd &
