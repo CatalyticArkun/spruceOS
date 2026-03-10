@@ -167,7 +167,7 @@ trigger_sleep() {
             # Set clocks bad to full speed
             set_performance
             sleep 0.1
-            "$POWER_OFF_SCRIPT" &
+            invoke_save_poweroff_singleflight "sleep_helper:lid_timeout" &
         fi
     else
         
@@ -185,7 +185,7 @@ trigger_sleep() {
             power_trace_emit "TRANSITION_TIMEOUT" "AUTO" "RUNNING" "SLEEPING" "rtc_timeout" "sleep_helper.sh:trigger_sleep" "woke via timer and escalating to poweroff" "rtc" "idle_timeout" "" "" "" "$((IDLE_TIMEOUT * 1000))"
             log_message "Idle time exceeded, triggering poweroff -- IDLE_TIMEOUT=$IDLE_TIMEOUT"
             sleep 0.1
-            "$POWER_OFF_SCRIPT" &
+            invoke_save_poweroff_singleflight "sleep_helper:rtc_timeout" &
         else
             power_trace_emit "WAKE_DETECTED" "AUTO" "RUNNING" "WAKING" "manual" "sleep_helper.sh:trigger_sleep" "manual wake detected" "power_button_or_lid" "" "" "" "" ""
             log_message "Woke from sleep manually"

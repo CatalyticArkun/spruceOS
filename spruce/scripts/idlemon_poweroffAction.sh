@@ -12,7 +12,7 @@ process_name=$1
 case "$process_name" in
 
     MainUI|ra32.*|ra64.*|retroarch*|drastic*|PPSSPP*)
-        /mnt/SDCARD/spruce/scripts/save_poweroff.sh
+        invoke_save_poweroff_singleflight "idlemon_poweroffAction:${process_name}"
         ;;
     *)
         exit 1

@@ -75,7 +75,7 @@ hard_shutdown() {
     CAPACITY=$1
     if [ "$CAPACITY" -le 1 ]; then
         flag_add "forced_shutdown" --tmp
-        /mnt/SDCARD/spruce/scripts/save_poweroff.sh
+        invoke_save_poweroff_singleflight "low_power_warning:hard_shutdown"
         exit
     fi
 }

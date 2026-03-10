@@ -34,6 +34,10 @@ while [ 1 ]; do
         low_battery_check       # Check for the low_battery flag and warn user if so
 
         # This is to mostly to allow themes to unpack before hitting the menu so they are immediately visible to PyUI
+        log_message "principal.sh: waiting for themes_unpacking before PyUI launch"
+        finish_unpacking "themes_unpacking"
+        log_message "principal.sh: themes_unpacking complete"
+
         log_message "principal.sh: waiting for pre_menu_unpacking before PyUI launch"
         finish_unpacking "pre_menu_unpacking"
         log_message "principal.sh: pre_menu_unpacking complete"
