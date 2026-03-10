@@ -141,9 +141,9 @@ if flag_check "$FIRSTBOOT_FLAG" || (flag_check "$FIRSTBOOT_IN_PROGRESS_FLAG" && 
     "/mnt/SDCARD/spruce/scripts/firstboot.sh"
     log_message "runtime.sh: firstboot.sh completed"
 else
-    log_message "runtime.sh: launching archiveUnpacker.sh pre_cmd (foreground)"
-    /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh pre_cmd
-    log_message "runtime.sh: archiveUnpacker.sh pre_cmd foreground run completed"
+    log_message "runtime.sh: launching archiveUnpacker.sh (default/all mode, foreground)"
+    /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh
+    log_message "runtime.sh: archiveUnpacker.sh default/all mode foreground run completed"
 fi
 
 /mnt/SDCARD/spruce/scripts/set_up_swap.sh &
