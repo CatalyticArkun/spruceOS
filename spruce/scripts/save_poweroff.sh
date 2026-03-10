@@ -35,6 +35,18 @@ else
     exit 0
 fi
 
+shutdown_handoff_started="false"
+
+release_singleflight_if_prehandoff_exit() {
+    reason="${1:-unknown}"
+
+    if [ "$shutdown_guard_claimed" = "true" ] && [ "$shutdown_handoff_started" != "true" ]; then
+        shutdown_singleflight_clear
+        log_message "save_poweroff.sh: released shutdown singleflight guard before irreversible handoff (reason=${reason})"
+        power_trace_emit "TRANSITION_ABORTED" "AUTO" "OFF" "RUNNING" "shutdown_prehandoff_exit" "save_poweroff.sh:singleflight_release" "singleflight guard released before irreversible handoff reason=${reason}" "" "" "" "" "" ""
+    fi
+}
+
 power_trace_shutdown_already_pending() {
     if ! command -v power_trace_load_state >/dev/null 2>&1; then
         return 1
@@ -328,6 +340,7 @@ exec_shutdown_stage_2() {
     log_message "Running stage 2 of save_poweroff from /tmp."
     sync
     if [ -e "$STAGE_2_SD_PATH" ]; then
+        shutdown_handoff_started="true"
         cp $STAGE_2_SD_PATH $STAGE_2_TMP_PATH
         chmod +x $STAGE_2_TMP_PATH
         # Reset environment BEFORE exec so the new shell interpreter
@@ -338,8 +351,14 @@ exec_shutdown_stage_2() {
     else
         log_message "ERROR: Stage 2 script missing! Executing run_poweroff_cmd() instead."
         power_trace_emit "POWER_ERROR" "AUTO" "OFF" "RUNNING" "stage2_missing" "save_poweroff.sh:exec_shutdown_stage_2" "stage2 shutdown script missing" "" "" "" "" "stage2_script_missing" ""
+        shutdown_handoff_started="true"
         run_poweroff_cmd
     fi
+}
+
+cleanup_shutdown_attempt() {
+    release_singleflight_if_prehandoff_exit "script_exit"
+    rm -f "$PIDFILE"
 }
 
     #######################################
@@ -350,13 +369,14 @@ PIDFILE="/tmp/save_poweroff.pid"
 if [ -f "$PIDFILE" ]; then
     oldpid="$(cat "$PIDFILE")"
     if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
-    log_message "save_poweroff.sh called in duplicate. Ignoring second call."
+        log_message "save_poweroff.sh called in duplicate. Ignoring second call."
         power_trace_emit "INVALID_TRANSITION" "AUTO" "OFF" "RUNNING" "duplicate_shutdown_call" "save_poweroff.sh:reentry_guard" "duplicate save_poweroff invocation ignored" "" "" "" "" "" ""
+        release_singleflight_if_prehandoff_exit "pidfile_duplicate"
         exit 0
     fi
 fi
 echo $$ > "$PIDFILE"
-trap 'rm -f "$PIDFILE"' EXIT INT TERM
+trap cleanup_shutdown_attempt EXIT INT TERM
 
 
 
@@ -398,9 +418,11 @@ kill_remaining_background_processes
 if device_system_handles_sdcard_unmount; then
 
     if [ "$s2_arg" = "--reboot" ]; then
+        shutdown_handoff_started="true"
         device_run_reboot_cmd
     else
         power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "systemd_path" "save_poweroff.sh:systemd" "platform manages shutdown sequence directly" "" "normal" "" "" "" ""
+        shutdown_handoff_started="true"
         run_poweroff_cmd
     fi
 

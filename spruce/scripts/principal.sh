@@ -19,6 +19,34 @@
 # Source the helper functions
 . /mnt/SDCARD/spruce/scripts/helperFunctions.sh
 
+pre_cmd_archives_pending() {
+    [ -n "$(find /mnt/SDCARD/spruce/archives/preCmd -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) 2>/dev/null | head -n 1)" ]
+}
+
+launch_depends_on_precmd_lane() {
+    launch_cmd="$1"
+
+    # Narrowest explicit signal currently available:
+    # game launches that route through standard_launch.sh consume the pre_cmd lane
+    # (cores/overlays/autoconfig staging). Path-shape alone is too broad.
+    case "$launch_cmd" in
+        *"/spruce/scripts/emu/standard_launch.sh"*|*"spruce/scripts/emu/standard_launch.sh"*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+wait_for_precmd_launch_readiness() {
+    log_message "principal.sh: pre_cmd dispatch gate engaged (waiting for pre_cmd lane readiness)"
+    while flag_check "pre_cmd_unpacking" || pre_cmd_archives_pending; do
+        sleep 0.05
+    done
+    log_message "principal.sh: pre_cmd dispatch gate released"
+}
+
 while [ 1 ]; do
     set_smart
 
@@ -72,6 +100,11 @@ while [ 1 ]; do
     if [ -f /tmp/cmd_to_run.sh ]; then
         sync
         cmd="$(sed 's/[[:space:]]*$//' /tmp/cmd_to_run.sh)"
+
+        if launch_depends_on_precmd_lane "$cmd"; then
+            wait_for_precmd_launch_readiness
+        fi
+
         log_activity_event "$cmd" "START"
         set_performance # lead with this to speed up launching
 
