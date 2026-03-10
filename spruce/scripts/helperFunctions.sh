@@ -17,6 +17,7 @@
 export FLAGS_DIR="/mnt/SDCARD/spruce/flags"
 export MESSAGES_FILE="/var/log/messages"
 POWER_OFF_SCRIPT="/mnt/SDCARD/spruce/scripts/save_poweroff.sh"
+SHUTDOWN_GUARD_DIR="/tmp/shutdown_in_progress.lockdir"
 
 # Export for enabling SSL support in CURL
 export SSL_CERT_FILE=/mnt/SDCARD/spruce/etc/ca-certificates.crt
@@ -232,6 +233,42 @@ flag_remove() {
     local flag_name="$1"
     rm -f "$FLAGS_DIR/${flag_name}.lock"
     rm -f "/tmp/${flag_name}.lock"
+}
+
+shutdown_in_progress() {
+    [ -d "$SHUTDOWN_GUARD_DIR" ]
+}
+
+shutdown_singleflight_begin() {
+    local source_ref="${1:-unknown_source}"
+
+    if mkdir "$SHUTDOWN_GUARD_DIR" 2>/dev/null; then
+        printf '%s pid=%s ts=%s\n' "$source_ref" "$$" "$(date +%s)" > "$SHUTDOWN_GUARD_DIR/owner" 2>/dev/null || true
+        return 0
+    fi
+
+    return 1
+}
+
+shutdown_singleflight_clear() {
+    rm -rf "$SHUTDOWN_GUARD_DIR"
+}
+
+invoke_save_poweroff_singleflight() {
+    local source_ref="${1:-unknown_source}"
+    shift || true
+
+    if shutdown_in_progress; then
+        log_message "Shutdown already in progress; skipping duplicate request from ${source_ref}."
+        return 1
+    fi
+
+    if ! shutdown_singleflight_begin "$source_ref"; then
+        log_message "Shutdown request race lost; skipping duplicate request from ${source_ref}."
+        return 1
+    fi
+
+    SHUTDOWN_GUARD_OWNED=1 "$POWER_OFF_SCRIPT" "$@"
 }
 
 # Call this to get the last button pressed

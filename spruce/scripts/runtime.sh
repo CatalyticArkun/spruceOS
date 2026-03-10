@@ -69,10 +69,14 @@ check_and_handle_firmware_app &
 check_and_hide_update_app &
 
 # Recover from stale pseudo-sleep ownership markers left by unclean shutdown/reboot.
-for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after /tmp/sleep_helper_started /tmp/power_pressed_flag /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_shutdown_requested; do
+for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after /tmp/sleep_helper_started /tmp/power_pressed_flag /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_shutdown_requested /tmp/shutdown_in_progress.lockdir; do
     if [ -e "$stale_file" ]; then
         log_message "runtime.sh: clearing stale power state marker ${stale_file}"
-        rm -f "$stale_file"
+        if [ -d "$stale_file" ]; then
+            rm -rf "$stale_file"
+        else
+            rm -f "$stale_file"
+        fi
     fi
 done
 
@@ -85,6 +89,11 @@ FIRSTBOOT_COMPLETE_VERIFIED_FLAG="first_boot_${PLATFORM}_complete_verified"
 firstboot_completion_artifacts_look_clean() {
     if flag_check "pre_menu_unpacking"; then
         log_message "runtime.sh: firstboot verification failed (pre_menu_unpacking still active)"
+        return 1
+    fi
+
+    if flag_check "themes_unpacking"; then
+        log_message "runtime.sh: firstboot verification failed (themes_unpacking still active)"
         return 1
     fi
 

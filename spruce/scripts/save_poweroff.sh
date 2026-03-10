@@ -24,6 +24,17 @@ else
     s2_arg=""
 fi
 
+shutdown_guard_claimed="false"
+if [ "${SHUTDOWN_GUARD_OWNED:-0}" = "1" ]; then
+    shutdown_guard_claimed="true"
+elif shutdown_singleflight_begin "save_poweroff.sh:entry"; then
+    shutdown_guard_claimed="true"
+else
+    log_message "save_poweroff.sh: shutdown already in progress. Ignoring duplicate call before startup sequence."
+    power_trace_emit "INVALID_TRANSITION" "AUTO" "OFF" "RUNNING" "duplicate_shutdown_call" "save_poweroff.sh:singleflight_guard" "duplicate save_poweroff invocation ignored by shutdown guard" "" "" "" "" "" ""
+    exit 0
+fi
+
 power_trace_shutdown_already_pending() {
     if ! command -v power_trace_load_state >/dev/null 2>&1; then
         return 1

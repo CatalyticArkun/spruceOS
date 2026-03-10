@@ -43,7 +43,7 @@ long_press_handler() {
     sleep 2
     flag_remove "pb.longpress"
     vibrate &
-    /mnt/SDCARD/spruce/scripts/save_poweroff.sh
+    invoke_save_poweroff_singleflight "powerbutton_watchdog:long_press"
 }
 
 
@@ -144,7 +144,7 @@ while true; do
                         vibrate &
                         killall getevent 2>/dev/null
                         sleep 0.1
-                        /mnt/SDCARD/spruce/scripts/save_poweroff.sh
+                        invoke_save_poweroff_singleflight "powerbutton_watchdog:instant_sleep_powerdown"
                     fi
                 fi
 
@@ -226,7 +226,7 @@ while true; do
 
             if applicable_process_is_running; then
                 vibrate &
-                /mnt/SDCARD/spruce/scripts/save_poweroff.sh
+                invoke_save_poweroff_singleflight "powerbutton_watchdog:wake_alarm_powerdown"
             fi
 
         else

@@ -92,6 +92,36 @@ wait_for_unpack_with_grace() {
 
 wait_for_unpack_with_grace "pre_menu_unpacking" "pre_menu_unpacking"
 wait_for_unpack_with_grace "pre_cmd_unpacking" "pre_cmd_unpacking"
+wait_for_unpack_with_grace "themes_unpacking" "themes_unpacking"
+
+startup_unpack_converged() {
+    if flag_check "themes_unpacking"; then
+        log_message "firstboot.sh: startup convergence failed (themes_unpacking still active)"
+        return 1
+    fi
+
+    if flag_check "pre_menu_unpacking"; then
+        log_message "firstboot.sh: startup convergence failed (pre_menu_unpacking still active)"
+        return 1
+    fi
+
+    if flag_check "pre_cmd_unpacking"; then
+        log_message "firstboot.sh: startup convergence failed (pre_cmd_unpacking still active)"
+        return 1
+    fi
+
+    for startup_dir in /mnt/SDCARD/spruce/archives/preMenu /mnt/SDCARD/spruce/archives/preCmd /mnt/SDCARD/Themes /mnt/SDCARD/RetroArch/.retroarch/assets; do
+        [ -d "$startup_dir" ] || continue
+
+        leftover_archive="$(find "$startup_dir" -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) | head -n 1)"
+        if [ -n "$leftover_archive" ]; then
+            log_message "firstboot.sh: startup convergence failed (leftover startup archive: ${leftover_archive})"
+            return 1
+        fi
+    done
+
+    return 0
+}
 
 # create splore launcher if it doesn't already exist
 if [ ! -f "$SPLORE_CART" ]; then
@@ -106,6 +136,11 @@ display_image_and_text "$HAPPY_ICON" 35 25 "Happy gaming.........." 75
 sleep 5
 
 log_message "firstboot.sh: required work complete; setting complete marker"
+if ! startup_unpack_converged; then
+    log_message "firstboot.sh: convergence check failed; leaving in-progress marker for recovery on next boot"
+    exit 1
+fi
+
 flag_remove "$FIRSTBOOT_FLAG"
 flag_remove "$FIRSTBOOT_IN_PROGRESS_FLAG"
 flag_remove "$FIRSTBOOT_COMPLETE_VERIFIED_FLAG"

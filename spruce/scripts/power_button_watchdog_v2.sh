@@ -107,7 +107,7 @@ power_key_down () {
                 rm -f /tmp/powerbtn_cancelled
                 killall getevent 2>/dev/null
                 sleep 0.1
-                "$POWER_OFF_SCRIPT"
+                invoke_save_poweroff_singleflight "power_button_watchdog_v2:power_button_hold"
             fi
         ) &
         power_hold_pid=$!
@@ -148,4 +148,3 @@ while true; do
     log_message "power_button_watchdog_v2.sh: getevent pipe exited, restarting..."
     sleep 1
 done
-

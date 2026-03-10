@@ -24,6 +24,7 @@ log_message "Unpacker: Script started (mode arg: ${1:-all})"
 
 EARLY_PREMENU_LOCK_PUBLISHED="false"
 EARLY_PRECMD_LOCK_PUBLISHED="false"
+EARLY_THEMES_LOCK_PUBLISHED="false"
 
 cleanup() {
     if [ "$EARLY_PREMENU_LOCK_PUBLISHED" = "true" ]; then
@@ -31,6 +32,9 @@ cleanup() {
     fi
     if [ "$EARLY_PRECMD_LOCK_PUBLISHED" = "true" ]; then
         flag_remove "pre_cmd_unpacking"
+    fi
+    if [ "$EARLY_THEMES_LOCK_PUBLISHED" = "true" ]; then
+        flag_remove "themes_unpacking"
     fi
     flag_remove "silentUnpacker"
 }
@@ -153,13 +157,20 @@ case "$RUN_MODE" in
         log_message "Unpacker: published pre_menu_unpacking gate early for startup sequencing"
     fi
 
+    if ! flag_check "themes_unpacking"; then
+        flag_add "themes_unpacking" --tmp
+        EARLY_THEMES_LOCK_PUBLISHED="true"
+        log_message "Unpacker: published themes_unpacking gate early for startup sequencing"
+    fi
+
     if flag_check "save_active" && ! flag_check "pre_cmd_unpacking"; then
         flag_add "pre_cmd_unpacking" --tmp
         EARLY_PRECMD_LOCK_PUBLISHED="true"
         log_message "Unpacker: published pre_cmd_unpacking gate early because save_active=true"
     fi
 
-    unpack_archives "$THEME_DIR" "" "themes"
+    unpack_archives "$THEME_DIR" "themes_unpacking" "themes"
+    EARLY_THEMES_LOCK_PUBLISHED="false"
     unpack_archives "$ARCHIVE_DIR/preMenu" "pre_menu_unpacking" "preMenu"
     EARLY_PREMENU_LOCK_PUBLISHED="false"
     if flag_check "save_active"; then
