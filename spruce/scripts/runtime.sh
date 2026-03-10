@@ -87,6 +87,8 @@ FIRSTBOOT_COMPLETE_FLAG="first_boot_${PLATFORM}_complete"
 FIRSTBOOT_COMPLETE_VERIFIED_FLAG="first_boot_${PLATFORM}_complete_verified"
 
 firstboot_completion_artifacts_look_clean() {
+    # Runtime-side one-time verification is convergence-based. It does not rely
+    # on whether firstboot happened to observe unpack locks during grace windows.
     if flag_check "pre_menu_unpacking"; then
         log_message "runtime.sh: firstboot verification failed (pre_menu_unpacking still active)"
         return 1

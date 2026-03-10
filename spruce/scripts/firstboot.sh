@@ -65,6 +65,9 @@ unpacking_wait_ui_shown="false"
 wait_for_unpack_with_grace() {
     lock_name="$1"
     label="$2"
+    # Grace wait is a best-effort UX hint so firstboot can show progress if a
+    # startup unpack lock appears shortly after entry. It is NOT a correctness
+    # gate: completion authority is startup_unpack_converged().
     grace_checks=15 # 1.5s max to catch slightly-late lock publication
 
     while [ "$grace_checks" -gt 0 ]; do
@@ -87,6 +90,8 @@ wait_for_unpack_with_grace() {
         sleep 0.1
     done
 
+    log_message "firstboot.sh: ${label} not observed during grace window; deferring correctness decision to convergence check"
+
     return 1
 }
 
@@ -95,6 +100,9 @@ wait_for_unpack_with_grace "pre_cmd_unpacking" "pre_cmd_unpacking"
 wait_for_unpack_with_grace "themes_unpacking" "themes_unpacking"
 
 startup_unpack_converged() {
+    # Authoritative completion rule: firstboot completes only when relevant
+    # startup locks are clear and startup archive lanes are drained.
+    # Prior grace-window lock observation never proves completion.
     if flag_check "themes_unpacking"; then
         log_message "firstboot.sh: startup convergence failed (themes_unpacking still active)"
         return 1
