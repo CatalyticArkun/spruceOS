@@ -38,6 +38,12 @@ elif [ -n "$1" ]; then
     RUN_MODE="$1"
 fi
 
+if flag_check "silentUnpacker"; then
+    unpacker_silent="true"
+else
+    unpacker_silent="false"
+fi
+log_message "Unpacker: invocation context mode=${RUN_MODE} silent=${unpacker_silent}"
 
 # Function to display text if not in silent mode
 display_if_not_silent() {
@@ -49,46 +55,53 @@ display_if_not_silent() {
 unpack_archives() {
     local dir="$1"
     local flag_name="$2"
+    local lane_name="$3"
 
     [ -n "$flag_name" ] && flag_add "$flag_name" --tmp
-    log_message "Unpacker: scanning ${dir} (flag=${flag_name:-none})"
+    [ -z "$lane_name" ] && lane_name="$(basename "$dir")"
+    log_message "Unpacker: lane scan start lane=${lane_name} dir=${dir} flag=${flag_name:-none}"
 
     for archive in "$dir"/*.7z.extracting "$dir"/*.7z; do
         [ -f "$archive" ] || continue
 
         recovering="false"
+        candidate_type="fresh"
         if echo "$archive" | grep -q '\.7z\.extracting$'; then
             archive_name=$(basename "$archive" .7z.extracting)
             recovering="true"
-            log_message "Unpacker: archive extraction interrupted recovery name=${archive_name}.7z"
+            candidate_type="recovery"
+            log_message "Unpacker: recovery candidate detected lane=${lane_name} name=${archive_name}.7z.extracting"
         else
             archive_name=$(basename "$archive" .7z)
             extracting_archive="${archive}.extracting"
+            log_message "Unpacker: fresh candidate detected lane=${lane_name} name=${archive_name}.7z"
+            log_message "Unpacker: rename before extract lane=${lane_name} from=${archive_name}.7z to=${archive_name}.7z.extracting"
             if mv -f "$archive" "$extracting_archive"; then
                 archive="$extracting_archive"
             else
-                log_message "Unpacker: archive extraction prepare failed name=${archive_name}.7z"
+                log_message "Unpacker: archive extraction prepare failed lane=${lane_name} name=${archive_name}.7z"
                 continue
             fi
         fi
 
-        log_message "Unpacker: archive found dir=${dir} name=${archive_name}.7z"
+        log_message "Unpacker: eligible archive lane=${lane_name} type=${candidate_type} name=${archive_name}.7z"
         display_if_not_silent
 
         if 7zr l "$archive" | grep -q "/mnt/SDCARD/"; then
-            log_message "Unpacker: archive extraction starting name=${archive_name}.7z"
+            log_message "Unpacker: extraction start lane=${lane_name} type=${candidate_type} name=${archive_name}.7z"
             if 7zr x -aoa "$archive" -o/; then
-                log_message "Unpacker: archive extraction completed name=${archive_name}.7z"
+                log_message "Unpacker: extraction success lane=${lane_name} name=${archive_name}.7z"
                 if rm -f "$archive"; then
-                    log_message "Unpacker: archive removed name=${archive_name}.7z"
+                    log_message "Unpacker: cleanup success lane=${lane_name} removed=${archive_name}.7z.extracting"
                 else
-                    log_message "Unpacker: archive remove failed name=${archive_name}.7z"
+                    log_message "Unpacker: cleanup failed lane=${lane_name} remove_target=${archive_name}.7z.extracting"
                 fi
             else
-                log_message "Unpacker: archive extract failed name=${archive_name}.7z"
+                rc=$?
+                log_message "Unpacker: extraction failed lane=${lane_name} name=${archive_name}.7z rc=${rc}"
             fi
         else
-            log_message "Unpacker: archive skipped invalid-root name=${archive_name}.7z"
+            log_message "Unpacker: archive skipped invalid-root lane=${lane_name} name=${archive_name}.7z"
             if [ "$recovering" = "false" ]; then
                 mv -f "$archive" "$dir/${archive_name}.7z"
             fi
@@ -96,7 +109,7 @@ unpack_archives() {
     done
 
     [ -n "$flag_name" ] && flag_remove "$flag_name"
-    log_message "Unpacker: finished scanning ${dir} (flag=${flag_name:-none})"
+    log_message "Unpacker: lane scan complete lane=${lane_name} dir=${dir} flag=${flag_name:-none}"
 }
 
 # Quick check for .7z files in relevant directories
@@ -125,18 +138,18 @@ log_message "Unpacker: Starting theme and archive unpacking process"
 # Process archives based on run mode
 case "$RUN_MODE" in
 "all")
-    unpack_archives "$THEME_DIR"
-    unpack_archives "$ARCHIVE_DIR/preMenu" "pre_menu_unpacking"
+    unpack_archives "$THEME_DIR" "" "themes"
+    unpack_archives "$ARCHIVE_DIR/preMenu" "pre_menu_unpacking" "preMenu"
     if flag_check "save_active"; then
         log_message "Unpacker: preCmd unpack running in foreground because save_active=true (autoresume-sensitive boot)"
-        unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking"
+        unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking" "preCmd"
     else
         log_message "Unpacker: preCmd unpack running in background via dedicated silent pre_cmd worker because save_active=false"
         /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_cmd &
     fi
     ;;
 "pre_cmd")
-    unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking"
+    unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking" "preCmd"
     ;;
 *)
     log_message "Unpacker: Invalid run mode specified"

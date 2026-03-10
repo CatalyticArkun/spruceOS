@@ -321,7 +321,7 @@ unstage_archive() {
     ARC_DIR="/mnt/SDCARD/spruce/archives"
     STAGED_ARCHIVE="$1"
     TARGET="$2"
-    if [ -z "$TARGET_FOLDER" ] || [ "$TARGET_FOLDER" != "preCmd" ]; then TARGET="preMenu"; fi
+    if [ -z "$TARGET" ] || [ "$TARGET" != "preCmd" ]; then TARGET="preMenu"; fi
 
     if [ -f "$ARC_DIR/staging/$STAGED_ARCHIVE" ]; then
         log_message "$STAGED_ARCHIVE detected in spruce/archives/staging. Moving into place!"
