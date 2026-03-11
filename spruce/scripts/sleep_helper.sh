@@ -5,18 +5,9 @@
 SLEEP_INVOCATION_SOURCE="${1:-unknown_source}"
 sleep_shutdown_requested=0
 
-shutdown_pending_now() {
-    if command -v power_mode_is_shutdown_pending >/dev/null 2>&1; then
-        power_mode_is_shutdown_pending
-        return $?
-    fi
-
-    command -v power_trace_shutdown_pending >/dev/null 2>&1 && power_trace_shutdown_pending
-}
-
-if shutdown_pending_now; then
-    log_message "sleep_helper.sh: suppressing sleep invocation because shutdown is pending (source=${SLEEP_INVOCATION_SOURCE})"
-    power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "sleep_invocation_suppressed_shutdown_pending" "sleep_helper.sh:entry" "sleep suppressed while shutdown pending source=${SLEEP_INVOCATION_SOURCE}" "" "normal" "" "" "" ""
+if ! sleep_requests_allowed_now; then
+    log_message "sleep_helper.sh: suppressing sleep invocation because lifecycle gate denied request (source=${SLEEP_INVOCATION_SOURCE})"
+    power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "sleep_invocation_suppressed_lifecycle_gate" "sleep_helper.sh:entry" "sleep suppressed by lifecycle gate source=${SLEEP_INVOCATION_SOURCE}" "" "normal" "" "" "" ""
     exit 0
 fi
 
@@ -47,7 +38,8 @@ fi
 
 if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
     # Transitional marker only: canonical sleep ownership is in power_mode; this remains for legacy observers.
-    touch /tmp/power_watchdog_suspended
+    # The marker payload is the sleep_helper PID for stale-marker cleanup in legacy watchdog fallback mode.
+    printf '%s\n' "$$" > /tmp/power_watchdog_suspended
 fi
 START_TIME=$(date +%s)
 getevent $EVENT_PATH_POWER | while read -r line; do
@@ -266,7 +258,4 @@ rm -f /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_pressed_flag
 rm -f /tmp/power_watchdog_suspended
 
 sleep 2 #don't allow resleeping for a few seconds
-if command -v power_mode_set_running >/dev/null 2>&1; then
-    power_mode_set_running "watchdog"
-fi
 rm -f /tmp/sleep_helper_started

@@ -41,6 +41,37 @@ next_gen="$(power_mode_generation_get)"
     exit 1
 }
 
+# owner validation permits safe chars and rejects unsafe ones
+assert_true power_mode_set_running owner-1.abc_DEF
+assert_false power_mode_set_running "bad owner"
+assert_false power_mode_set_running 'bad"owner'
+
+# write path must restore caller umask
+original_umask="$(umask)"
+umask 022
+assert_true power_mode_set_running watchdog
+[ "$(umask)" = "0022" ] || {
+    echo "expected umask to be restored after power_mode write"
+    exit 1
+}
+umask "$original_umask"
+
+# invalid owner in persisted state fails closed
+cat > "$POWER_MODE_STATE_FILE" <<STATE
+power_mode="running"
+power_owner="bad owner"
+power_shutdown_pending="0"
+power_rearm_until="0"
+power_generation="1"
+STATE
+[ "$(power_mode_get)" = "shutdown_pending" ] || {
+    echo "expected invalid persisted owner to fail closed"
+    exit 1
+}
+
+# recover after fail-safe parse fence
+assert_true power_mode_boot_reset_running watchdog
+
 # invalid transition rejection: running -> waking is not allowed directly
 assert_false power_mode_enter_rearm sleep_helper 1
 

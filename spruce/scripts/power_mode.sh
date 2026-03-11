@@ -54,6 +54,13 @@ power_mode__is_valid_mode() {
     esac
 }
 
+power_mode__is_valid_owner() {
+    case "$1" in
+        ''|*[!A-Za-z0-9_.-]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
 power_mode__strip_quoted_value() {
     raw="$1"
 
@@ -111,12 +118,12 @@ power_mode__load_unlocked() {
                 fi
                 ;;
             power_owner)
-                if [ -n "$value" ]; then
+                if power_mode__is_valid_owner "$value"; then
                     power_owner="$value"
                     found_owner=1
                 else
                     power_mode_load_valid=0
-                    power_mode__log "state parse error: empty power_owner"
+                    power_mode__log "state parse error: invalid power_owner value ${value}"
                 fi
                 ;;
             power_shutdown_pending)
@@ -265,8 +272,8 @@ power_mode__write_state_locked() {
         return 1
     fi
 
-    if [ -z "$owner" ]; then
-        power_mode__log "reject transition with empty owner"
+    if ! power_mode__is_valid_owner "$owner"; then
+        power_mode__log "reject transition with invalid owner=${owner}"
         return 1
     fi
 
@@ -282,15 +289,20 @@ power_mode__write_state_locked() {
 
     new_generation=$((old_generation + 1))
     tmp_file="${POWER_MODE_STATE_FILE}.$$.tmp"
+    previous_umask="$(umask)"
     umask 077
-    {
+    if ! {
         printf 'power_mode="%s"\n' "$mode"
         printf 'power_owner="%s"\n' "$owner"
         printf 'power_shutdown_pending="%s"\n' "$shutdown_pending"
         printf 'power_rearm_until="%s"\n' "$rearm_until"
         printf 'power_generation="%s"\n' "$new_generation"
         printf 'power_updated_at="%s"\n' "$(date +%s)"
-    } > "$tmp_file" || return 1
+    } > "$tmp_file"; then
+        umask "$previous_umask"
+        return 1
+    fi
+    umask "$previous_umask"
 
     if ! mv -f "$tmp_file" "$POWER_MODE_STATE_FILE"; then
         rm -f "$tmp_file" 2>/dev/null || true

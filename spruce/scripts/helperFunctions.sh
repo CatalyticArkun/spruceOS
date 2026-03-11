@@ -259,9 +259,43 @@ shutdown_singleflight_clear() {
     rm -rf "$SHUTDOWN_GUARD_DIR"
 }
 
+shutdown_pending_now() {
+    # Canonical lifecycle fence: prefer power_mode state when available.
+    if command -v power_mode_is_shutdown_pending >/dev/null 2>&1; then
+        power_mode_is_shutdown_pending
+        return $?
+    fi
+
+    # Compatibility fallback for partial-upgrade/helper-unavailable cases.
+    if command -v power_trace_shutdown_pending >/dev/null 2>&1; then
+        power_trace_shutdown_pending
+        return $?
+    fi
+
+    return 1
+}
+
+sleep_requests_allowed_now() {
+    # Canonical lifecycle gate for new sleep dispatches.
+    if command -v power_mode_may_accept_sleep_requests >/dev/null 2>&1; then
+        power_mode_may_accept_sleep_requests
+        return $?
+    fi
+
+    shutdown_pending_now && return 1
+    return 0
+}
+
 invoke_save_poweroff_singleflight() {
     local source_ref="${1:-unknown_source}"
     shift || true
+
+    # Canonical lifecycle fence: avoid duplicate shutdown handoff once
+    # power_mode has recorded shutdown pending.
+    if shutdown_pending_now; then
+        log_message "Shutdown already pending; skipping duplicate request from ${source_ref}."
+        return 1
+    fi
 
     if shutdown_in_progress; then
         log_message "Shutdown already in progress; skipping duplicate request from ${source_ref}."

@@ -49,6 +49,15 @@ power_surprise="oops"
 STATE
 assert_eq "$(power_mode_get)" "shutdown_pending" "unknown keys should fail closed to shutdown_pending"
 
+# owner values must be constrained to a shell-safe character set
+cat > "$POWER_MODE_STATE_FILE" <<STATE
+power_mode="running"
+power_owner="bad owner"
+power_shutdown_pending="0"
+power_rearm_until="0"
+power_generation="1"
+STATE
+assert_eq "$(power_mode_get)" "shutdown_pending" "invalid owner values should fail closed to shutdown_pending"
 
 power_mode_is_shutdown_pending || {
     echo "fail-safe parse path should set shutdown pending"
@@ -71,7 +80,15 @@ power_mode_boot_reset_running watchdog
 assert_eq "$(power_mode_get)" "running" "boot reset should clear pending"
 
 # guard against direct-write bypasses in migrated scripts
-if rg -n '(^|[^A-Za-z0-9_])(>|>>|cat\s*>)\s*/tmp/power_mode\.state\b|(^|[^A-Za-z0-9_])(>|>>|cat\s*>)\s*\$\{?POWER_MODE_STATE_FILE\}?' spruce/scripts | grep -v 'spruce/scripts/power_mode.sh' >/dev/null; then
+pattern='(^|[^A-Za-z0-9_])(>|>>|cat\s*>)\s*/tmp/power_mode\.state\b|(^|[^A-Za-z0-9_])(>|>>|cat\s*>)\s*\$\{?POWER_MODE_STATE_FILE\}?'
+if command -v rg >/dev/null 2>&1; then
+    scan_output="$(rg -n "$pattern" spruce/scripts || true)"
+else
+    echo "warning: rg unavailable; using grep fallback for power_mode direct-write scan"
+    scan_output="$(grep -nE "$pattern" spruce/scripts/*.sh 2>/dev/null || true)"
+fi
+
+if printf '%s\n' "$scan_output" | grep -v 'spruce/scripts/power_mode.sh' | grep -q .; then
     echo "found direct-write bypass to power_mode state outside power_mode.sh"
     exit 1
 fi

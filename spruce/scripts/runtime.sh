@@ -19,10 +19,8 @@ rotate_logs
 log_file="/mnt/SDCARD/Saves/spruce/spruce.log" # Resetting log file location
 log_message "---------Starting up---------"
 
-if command -v power_trace_shutdown_pending >/dev/null 2>&1; then
-    if power_trace_shutdown_pending; then
-        log_message "runtime.sh: startup detected power_trace shutdown pending marker before boot reconcile"
-    fi
+if shutdown_pending_now; then
+    log_message "runtime.sh: startup detected shutdown pending fence before boot reconcile"
 fi
 
 if command -v power_trace_boot_reconcile_pending >/dev/null 2>&1; then
