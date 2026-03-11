@@ -25,6 +25,23 @@ reset_power_button_state() {
     fi
 }
 
+suppression_reset_done=0
+
+handle_suppressed_watchdog_window() {
+    if watchdog_suspended_or_not_rearmed; then
+        if [ "$suppression_reset_done" -ne 1 ]; then
+            log_message "power_button_watchdog_v2.sh: Sleep ownership active or rearm pending; resetting state while keeping stream alive."
+            reset_power_button_state
+            suppression_reset_done=1
+        fi
+
+        return 0
+    fi
+
+    suppression_reset_done=0
+    return 1
+}
+
 watchdog_suspended_or_not_rearmed() {
     if [ -e /tmp/power_watchdog_suspended ]; then
         # Recover from stale suspend state if sleep_helper is no longer running.
@@ -115,36 +132,39 @@ power_key_down () {
 }
 
 
-while true; do
-    LAST_POWER_DOWN=0
-    log_message "power_button_watchdog_v2.sh: Monitoring power button events on $EVENT_PATH_POWER"
-    getevent -exclusive -pid $$ $EVENT_PATH_POWER | while read line; do
-        if watchdog_suspended_or_not_rearmed; then
-            log_message "power_button_watchdog_v2.sh: Sleep ownership active or rearm pending; resetting state and restarting stream."
-            reset_power_button_state
-            # Break and restart getevent so wake-transition lifecycle stays
-            # owned by sleep_helper and the post-resume boundary.
-            break
-        fi
+run_watchdog_loop() {
+    while true; do
+        LAST_POWER_DOWN=0
+        log_message "power_button_watchdog_v2.sh: Monitoring power button events on $EVENT_PATH_POWER"
+        getevent -exclusive -pid $$ $EVENT_PATH_POWER | while read line; do
+            if handle_suppressed_watchdog_window; then
+                # Keep consuming the stream so we do not create a restart/listener gap.
+                continue
+            fi
 
-        now=$(date +%s)
-        case $line in
-            # Power key down
-            *"key $B_POWER 1"*)
-                if [ $((now - LAST_POWER_DOWN)) -ge 1 ]; then
-                    log_message "power_button_watchdog_v2.sh: power_key_down"
-                    power_key_down
-                    LAST_POWER_DOWN=$now
-                fi
-                ;;
+            now=$(date +%s)
+            case $line in
+                # Power key down
+                *"key $B_POWER 1"*)
+                    if [ $((now - LAST_POWER_DOWN)) -ge 1 ]; then
+                        log_message "power_button_watchdog_v2.sh: power_key_down"
+                        power_key_down
+                        LAST_POWER_DOWN=$now
+                    fi
+                    ;;
 
-            # Power key up
-            *"key $B_POWER 0"*)
-                    log_message "power_button_watchdog_v2.sh: power_key_up"
-                    power_key_up
-                ;;
-            esac
+                # Power key up
+                *"key $B_POWER 0"*)
+                        log_message "power_button_watchdog_v2.sh: power_key_up"
+                        power_key_up
+                    ;;
+                esac
+        done
+        log_message "power_button_watchdog_v2.sh: getevent pipe exited, restarting..."
+        sleep 1
     done
-    log_message "power_button_watchdog_v2.sh: getevent pipe exited, restarting..."
-    sleep 1
-done
+}
+
+if [ "${POWER_BUTTON_WATCHDOG_TEST_MODE:-0}" != "1" ]; then
+    run_watchdog_loop
+fi
