@@ -14,7 +14,7 @@ scan() {
     fi
 }
 
-fn_refs="$(scan 'set_up_boot_action\s*\(\)')"
+fn_refs="$(scan 'set_up_boot_action[[:space:]]*\(\)')"
 [ -n "$fn_refs" ] || {
     echo "expected set_up_boot_action function"
     exit 1

@@ -14,7 +14,7 @@ scan() {
     fi
 }
 
-fn_refs="$(scan 'invoke_save_poweroff_singleflight\s*\(\)')"
+fn_refs="$(scan 'invoke_save_poweroff_singleflight[[:space:]]*\(\)')"
 [ -n "$fn_refs" ] || {
     echo "expected invoke_save_poweroff_singleflight function"
     exit 1

@@ -80,7 +80,7 @@ power_mode_boot_reset_running watchdog
 assert_eq "$(power_mode_get)" "running" "boot reset should clear pending"
 
 # guard against direct-write bypasses in migrated scripts
-pattern='(^|[^A-Za-z0-9_])(>|>>|cat\s*>)\s*/tmp/power_mode\.state\b|(^|[^A-Za-z0-9_])(>|>>|cat\s*>)\s*\$\{?POWER_MODE_STATE_FILE\}?'
+pattern='(^|[^[:alnum:]_])(>|>>|cat[[:space:]]*>)[[:space:]]*/tmp/power_mode\.state($|[^[:alnum:]_])|(^|[^[:alnum:]_])(>|>>|cat[[:space:]]*>)[[:space:]]*\$\{?POWER_MODE_STATE_FILE\}?($|[^[:alnum:]_])'
 if command -v rg >/dev/null 2>&1; then
     scan_output="$(rg -n "$pattern" spruce/scripts || true)"
 else

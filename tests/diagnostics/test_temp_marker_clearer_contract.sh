@@ -7,7 +7,7 @@ RUNTIME="$ROOT/spruce/scripts/runtime.sh"
 
 scan_literal_clearers() {
     marker="$1"
-    pattern="rm[[:space:]]+(-[[:alnum:]]+[[:space:]]+)*[^\n]*${marker}"
+    pattern="rm[[:space:]]+(-[[:alnum:]]+[[:space:]]+)*.*${marker}"
 
     if command -v rg >/dev/null 2>&1; then
         rg -n -e "$pattern" $SCRIPTS_GLOB | cut -d: -f1 | xargs -r -n1 basename | sort -u

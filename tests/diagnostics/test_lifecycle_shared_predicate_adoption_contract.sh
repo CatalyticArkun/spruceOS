@@ -16,11 +16,11 @@ scan_file() {
 }
 
 # shared helper definitions exist
-[ -n "$(scan_file "$HELPERS" 'shutdown_pending_now\s*\(\)')" ] || {
+[ -n "$(scan_file "$HELPERS" 'shutdown_pending_now[[:space:]]*\(\)')" ] || {
     echo "expected helperFunctions.sh to define shutdown_pending_now"
     exit 1
 }
-[ -n "$(scan_file "$HELPERS" 'sleep_requests_allowed_now\s*\(\)')" ] || {
+[ -n "$(scan_file "$HELPERS" 'sleep_requests_allowed_now[[:space:]]*\(\)')" ] || {
     echo "expected helperFunctions.sh to define sleep_requests_allowed_now"
     exit 1
 }
@@ -48,12 +48,12 @@ do
 done
 
 # wrappers that were pure pass-through should stay removed
-[ -z "$(scan_file "$ROOT/spruce/scripts/principal.sh" 'launch_allowed_now\s*\(\)')" ] || {
+[ -z "$(scan_file "$ROOT/spruce/scripts/principal.sh" 'launch_allowed_now[[:space:]]*\(\)')" ] || {
     echo "expected principal.sh launch_allowed_now wrapper to remain removed"
     exit 1
 }
 
-[ -z "$(scan_file "$ROOT/spruce/scripts/runtime.sh" 'startup_shutdown_pending_now\s*\(\)')" ] || {
+[ -z "$(scan_file "$ROOT/spruce/scripts/runtime.sh" 'startup_shutdown_pending_now[[:space:]]*\(\)')" ] || {
     echo "expected runtime.sh startup_shutdown_pending_now wrapper to remain removed"
     exit 1
 }

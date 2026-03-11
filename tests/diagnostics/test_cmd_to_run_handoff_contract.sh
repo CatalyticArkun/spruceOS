@@ -45,7 +45,7 @@ principal.sh
 save_poweroff.sh'
 
 # Removers: principal and runtimeHelper clean up after dispatch; homebutton clears port relaunch handoff.
-removers="$(scan_files_for_pattern 'rm[[:space:]]+(-[[:alnum:]]+[[:space:]]+)*[^\n]*/tmp/cmd_to_run\.sh')"
+removers="$(scan_files_for_pattern '^[[:space:]]*rm[[:space:]]+(-[[:alnum:]]+[[:space:]]+)*([^[:space:]#]+[[:space:]]+)*"?/tmp/cmd_to_run\.sh"?([[:space:];|&]|$)')"
 assert_file_set_eq "cmd_to_run removers" "$removers" 'homebutton_watchdog.sh
 principal.sh
 runtimeHelper.sh'

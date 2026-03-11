@@ -14,7 +14,7 @@ scan() {
     fi
 }
 
-fn_refs="$(scan 'auto_resume_game\s*\(\)')"
+fn_refs="$(scan 'auto_resume_game[[:space:]]*\(\)')"
 [ -n "$fn_refs" ] || {
     echo "expected auto_resume_game function"
     exit 1
