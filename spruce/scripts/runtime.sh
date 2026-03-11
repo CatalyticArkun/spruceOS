@@ -81,7 +81,7 @@ check_and_handle_firmware_app &
 check_and_hide_update_app &
 
 # Recover from stale pseudo-sleep ownership markers left by unclean shutdown/reboot.
-for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after /tmp/sleep_helper_started /tmp/power_pressed_flag /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_shutdown_requested /tmp/shutdown_in_progress.lockdir; do
+for stale_file in /tmp/power_mode.state /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after /tmp/sleep_helper_started /tmp/power_pressed_flag /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_shutdown_requested /tmp/shutdown_in_progress.lockdir; do
     if [ -e "$stale_file" ]; then
         log_message "runtime.sh: clearing stale power state marker ${stale_file}"
         if [ -d "$stale_file" ]; then
@@ -91,6 +91,14 @@ for stale_file in /tmp/power_watchdog_suspended /tmp/power_watchdog_rearm_after 
         fi
     fi
 done
+
+if command -v power_mode_boot_reset_running >/dev/null 2>&1; then
+    power_mode_boot_reset_running "watchdog"
+    log_message "runtime.sh: boot reset power mode contract to running/watchdog"
+elif command -v power_mode_set_running >/dev/null 2>&1; then
+    power_mode_set_running "watchdog"
+    log_message "runtime.sh: initialized power mode contract to running/watchdog"
+fi
 
 # Check for first_boot flags and run Unpacker accordingly
 FIRSTBOOT_FLAG="first_boot_${PLATFORM}"

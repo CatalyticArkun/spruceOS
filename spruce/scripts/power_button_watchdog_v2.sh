@@ -5,16 +5,6 @@
 log_message "power_button_watchdog_v2.sh: Started up."
 
 
-shutdown_pending_now() {
-    if command -v power_trace_shutdown_pending >/dev/null 2>&1; then
-        if power_trace_shutdown_pending; then
-            return 0
-        fi
-    fi
-
-    return 1
-}
-
 reset_power_button_state() {
     rm -f /tmp/powerbtn /tmp/powerbtn_cancelled
 
@@ -43,27 +33,28 @@ handle_suppressed_watchdog_window() {
 }
 
 watchdog_suspended_or_not_rearmed() {
-    if [ -e /tmp/power_watchdog_suspended ]; then
-        # Recover from stale suspend state if sleep_helper is no longer running.
-        if ! pgrep -f "/mnt/SDCARD/spruce/scripts/sleep_helper.sh" >/dev/null 2>&1; then
-            log_message "power_button_watchdog_v2.sh: Found stale power_watchdog_suspended, clearing."
-            rm -f /tmp/power_watchdog_suspended
-        else
-            log_message "power_button_watchdog_v2.sh: Suppressing power event stream while sleep_helper owns wake handling."
+    if command -v power_mode_watchdog_may_handle_input >/dev/null 2>&1; then
+        # Reconcile rearm completion explicitly before asking the pure predicate.
+        if command -v power_mode_watchdog_reconcile_after_rearm >/dev/null 2>&1; then
+            power_mode_watchdog_reconcile_after_rearm >/dev/null 2>&1 || true
+        fi
+
+        if power_mode_watchdog_may_handle_input; then
+            return 1
+        fi
+
+        if command -v power_mode_is_shutdown_pending >/dev/null 2>&1 && power_mode_is_shutdown_pending; then
+            log_message "power_button_watchdog_v2.sh: Suppressing input handling because shutdown is pending."
             return 0
         fi
+
+        log_message "power_button_watchdog_v2.sh: Suppressing power event stream while sleep/rearm ownership is active."
+        return 0
     fi
 
-    if [ -e /tmp/power_watchdog_rearm_after ]; then
-        rearm_at=$(cat /tmp/power_watchdog_rearm_after 2>/dev/null)
-        now=$(date +%s)
-
-        if [ -n "$rearm_at" ] && [ "$now" -lt "$rearm_at" ] 2>/dev/null; then
-            log_message "power_button_watchdog_v2.sh: Suppressing power events until rearm boundary ${rearm_at} (now=${now})."
-            return 0
-        fi
-
-        rm -f /tmp/power_watchdog_rearm_after
+    # Legacy marker fallback only when power_mode helpers are unavailable.
+    if [ -e /tmp/power_watchdog_suspended ]; then
+        return 0
     fi
 
     return 1
@@ -88,7 +79,7 @@ power_key_up () {
         fi
 
         if [ "$was_cancelled" = false ]; then
-            if shutdown_pending_now; then
+            if command -v power_mode_is_shutdown_pending >/dev/null 2>&1 && power_mode_is_shutdown_pending; then
                 # Long-press shutdown may have already emitted SHUTDOWN_BEGIN;
                 # once pending, key-release must not route into sleep_helper.
                 log_message "power_button_watchdog_v2.sh: suppressing short-press sleep because shutdown is pending"
@@ -117,8 +108,11 @@ power_key_down () {
             if [ -e /tmp/powerbtn ] && [ ! -e /tmp/powerbtn_cancelled ]; then
                 log_message "power_button_watchdog_v2.sh: Powering off due to power button hold."
                 power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "power_button_hold" "power_button_watchdog_v2.sh:power_key_down" "long press requested poweroff" "" "forced" "autosave_expected" "" "" ""
+                if command -v power_mode_mark_shutdown_pending >/dev/null 2>&1; then
+                    power_mode_mark_shutdown_pending "power_button_watchdog_v2"
+                fi
                 touch /tmp/power_shutdown_requested
-                log_message "power_button_watchdog_v2.sh: marked /tmp/power_shutdown_requested before poweroff handoff"
+                log_message "power_button_watchdog_v2.sh: marked shutdown pending before poweroff handoff"
                 vibrate &
                 rm -f /tmp/powerbtn
                 rm -f /tmp/powerbtn_cancelled

@@ -3,8 +3,14 @@
 . /mnt/SDCARD/spruce/scripts/helperFunctions.sh
 
 SLEEP_INVOCATION_SOURCE="${1:-unknown_source}"
+sleep_shutdown_requested=0
 
 shutdown_pending_now() {
+    if command -v power_mode_is_shutdown_pending >/dev/null 2>&1; then
+        power_mode_is_shutdown_pending
+        return $?
+    fi
+
     command -v power_trace_shutdown_pending >/dev/null 2>&1 && power_trace_shutdown_pending
 }
 
@@ -32,9 +38,15 @@ rm -f /tmp/power_pressed_flag
 
 echo "$$" > /tmp/sleep_helper_started
 
+if command -v power_mode_claim_sleep_owner >/dev/null 2>&1; then
+    if ! power_mode_claim_sleep_owner "sleep_helper"; then
+        log_message "sleep_helper.sh: failed to claim sleep owner because shutdown is pending (source=${SLEEP_INVOCATION_SOURCE})"
+        exit 0
+    fi
+fi
+
 if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
-    # During pseudo-sleep, watchdog must not co-own power input semantics.
-    # sleep_helper is authoritative for wake detection until explicit rearm.
+    # Transitional marker only: canonical sleep ownership is in power_mode; this remains for legacy observers.
     touch /tmp/power_watchdog_suspended
 fi
 START_TIME=$(date +%s)
@@ -132,6 +144,11 @@ trigger_sleep() {
         local current_lid_state
 
         while [ "$elapsed" -lt "$IDLE_TIMEOUT" ]; do
+            if shutdown_pending_now; then
+                log_message "sleep_helper.sh: shutdown pending while pseudo-sleep active, aborting resume path"
+                return 0
+            fi
+
             current_lid_state=$(device_lid_open)
                 
             # Track if lid was ever closed
@@ -167,11 +184,17 @@ trigger_sleep() {
             # Set clocks bad to full speed
             set_performance
             sleep 0.1
-            invoke_save_poweroff_singleflight "sleep_helper:lid_timeout" &
+            sleep_shutdown_requested=1
+            invoke_save_poweroff_singleflight "sleep_helper:lid_timeout"
+            return 0
         fi
     else
         
         while [ "$(device_lid_open)" = "0" ]; do
+            if shutdown_pending_now; then
+                log_message "sleep_helper.sh: shutdown pending while waiting for lid open, aborting resume path"
+                return 0
+            fi
             if [ "$(device_woke_via_timer)" = "true" ]; then
                 break
             fi
@@ -185,7 +208,9 @@ trigger_sleep() {
             power_trace_emit "TRANSITION_TIMEOUT" "AUTO" "RUNNING" "SLEEPING" "rtc_timeout" "sleep_helper.sh:trigger_sleep" "woke via timer and escalating to poweroff" "rtc" "idle_timeout" "" "" "" "$((IDLE_TIMEOUT * 1000))"
             log_message "Idle time exceeded, triggering poweroff -- IDLE_TIMEOUT=$IDLE_TIMEOUT"
             sleep 0.1
-            invoke_save_poweroff_singleflight "sleep_helper:rtc_timeout" &
+            sleep_shutdown_requested=1
+            invoke_save_poweroff_singleflight "sleep_helper:rtc_timeout"
+            return 0
         else
             power_trace_emit "WAKE_DETECTED" "AUTO" "RUNNING" "WAKING" "manual" "sleep_helper.sh:trigger_sleep" "manual wake detected" "power_button_or_lid" "" "" "" "" ""
             log_message "Woke from sleep manually"
@@ -198,6 +223,11 @@ if ! trigger_sleep; then
     kill "$GET_EVENT_PID" 2>/dev/null
     rm -f /tmp/sleep_helper_started
     exit 1
+fi
+
+if [ "$sleep_shutdown_requested" = "1" ] || shutdown_pending_now; then
+    log_message "sleep_helper.sh: shutdown pending/requested after sleep trigger; skipping resume actions"
+    exit 0
 fi
 
 power_trace_emit "WAKE_RESUME_BEGIN" "AUTO" "RUNNING" "WAKING" "resume_start" "sleep_helper.sh:main" "beginning post-wake restore" "" "" "" "" "" ""
@@ -215,15 +245,15 @@ unpause_emulators
 power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "resume_complete" "sleep_helper.sh:main" "post-wake restore complete" "" "" "" "" "" ""
 
 if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
-    # Explicit watchdog rearm contract:
-    # - sleep_helper keeps ownership through wake/restore.
-    # - watchdog may resume normal short/long-press semantics only after
-    #   this settle boundary has elapsed.
-    watchdog_rearm_at=$(( $(date +%s) + 3 ))
-    echo "$watchdog_rearm_at" > /tmp/power_watchdog_rearm_after
-    log_message "sleep_helper.sh: Set watchdog rearm boundary at epoch ${watchdog_rearm_at}"
+    if command -v power_mode_enter_rearm >/dev/null 2>&1; then
+        power_mode_enter_rearm "sleep_helper" 3
+    fi
+
+    # Canonical rearm boundary is owned by power_mode.
 else
-    rm -f /tmp/power_watchdog_rearm_after
+    if command -v power_mode_set_running >/dev/null 2>&1; then
+        power_mode_set_running "watchdog"
+    fi
 fi
 
 kill "$GET_EVENT_PID" 2>/dev/null
@@ -232,8 +262,11 @@ kill "$GET_EVENT_PID" 2>/dev/null
 # This prevents wake-related/stale power transitions from immediately retriggering sleep.
 rm -f /tmp/powerbtn /tmp/powerbtn_cancelled /tmp/power_pressed_flag
 
-# End explicit ownership handoff; watchdog still waits for rearm boundary.
+# Remove transitional marker after canonical ownership handoff completes.
 rm -f /tmp/power_watchdog_suspended
 
 sleep 2 #don't allow resleeping for a few seconds
+if command -v power_mode_set_running >/dev/null 2>&1; then
+    power_mode_set_running "watchdog"
+fi
 rm -f /tmp/sleep_helper_started
