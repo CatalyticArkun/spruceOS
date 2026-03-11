@@ -32,6 +32,18 @@ if command -v power_trace_emit >/dev/null 2>&1; then
     power_trace_emit "BOOT_BEGIN" "AUTO" "BOOTING" "BOOTING" "runtime_start" "runtime.sh:startup" "runtime startup sequence entered" "" "" "" "$(flag_check save_active && echo true || echo false)" "" "" || true
 fi
 
+boot_complete_emitted=0
+emit_boot_complete_once() {
+    [ "$boot_complete_emitted" = "1" ] && return 0
+
+    if command -v power_trace_emit >/dev/null 2>&1; then
+        power_trace_emit "BOOT_COMPLETE" "AUTO" "RUNNING" "RUNNING" "$1" "runtime.sh:startup" "$2" "" "" "" "" "" "" || true
+    fi
+
+    boot_complete_emitted=1
+    log_message "runtime.sh: BOOT_COMPLETE emitted (trigger=$1)"
+}
+
 if flag_check "save_active"; then
     save_active_state="true"
 else
@@ -159,6 +171,11 @@ fi
 
 /mnt/SDCARD/spruce/scripts/set_up_swap.sh &
 
+# Emit BOOT_COMPLETE before entering any active runtime lanes (watchdogs,
+# power-button handling, and potential game autoresume) so shutdown/sleep
+# transitions cannot evaluate against stale BOOTING state.
+emit_boot_complete_once "runtime_services_start" "startup tasks complete; enabling runtime services"
+
 log_message "runtime.sh: milestone launch_startup_watchdogs (begin)"
 launch_startup_watchdogs
 log_message "runtime.sh: milestone launch_startup_watchdogs (end)"
@@ -192,11 +209,10 @@ set_up_boot_action
 
 flag_remove "save_active"
 
-if command -v power_trace_emit >/dev/null 2>&1; then
-    power_trace_emit "BOOT_COMPLETE" "AUTO" "RUNNING" "RUNNING" "runtime_ready" "runtime.sh:startup" "startup tasks complete; entering principal loop" "" "" "" "" "" "" || true
-fi
+# Safety net in case startup flow changes in future edits.
+emit_boot_complete_once "runtime_ready" "startup tasks complete; entering principal loop"
 
 # start main loop
-log_message "runtime.sh: BOOT_COMPLETE emitted; starting principal loop next"
+log_message "runtime.sh: starting principal loop"
 log_message "Starting main loop"
 /mnt/SDCARD/spruce/scripts/principal.sh
