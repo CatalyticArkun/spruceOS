@@ -16,7 +16,7 @@ fi
 log_message "Lid watchdog started, monitoring lid state"
 
 while true; do
-    if command -v power_mode_is_shutdown_pending >/dev/null 2>&1 && power_mode_is_shutdown_pending; then
+    if ! sleep_requests_allowed_now; then
         sleep 0.5
         continue
     fi

@@ -391,6 +391,12 @@ auto_resume_game() {
     if auto_resume_should_emit_wake_trace; then
         power_trace_emit "WAKE_RESUME_BEGIN" "AUTO" "RUNNING" "WAKING" "autoresume" "runtimeHelper.sh:auto_resume_game" "save_active flag triggered autoresume during waking state" "" "" "" "save_active=true" "" ""
     fi
+
+    if shutdown_pending_now; then
+        log_message "runtimeHelper.sh:auto_resume_game: suppressing autoresume dispatch because shutdown is pending"
+        return 0
+    fi
+
     log_message "save_active flag detected. Autoresuming game."
 
     # Ensure device is properly initialized (volume, wifi, etc) before launching auto-resume
@@ -415,6 +421,12 @@ auto_resume_game() {
 
 set_up_boot_action() {
     BOOT_ACTION="$(get_config_value '.menuOptions."System Settings".bootTo.selected' "spruceUI")"
+
+    if shutdown_pending_now; then
+        log_message "runtimeHelper.sh:set_up_boot_action: skipping boot-action dispatch because shutdown is pending"
+        return 0
+    fi
+
     if ! flag_check "save_active"; then
         log_message "Selected boot action is $BOOT_ACTION."
         case "$BOOT_ACTION" in

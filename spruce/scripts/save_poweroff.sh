@@ -362,24 +362,10 @@ exec_shutdown_stage_2() {
 
 cleanup_shutdown_attempt() {
     release_singleflight_if_prehandoff_exit "script_exit"
-    rm -f "$PIDFILE"
 }
 
-    #######################################
-##### PREVENT RE-ENTRY IF ALREADY RUNNING #####
-    #######################################
-
-PIDFILE="/tmp/save_poweroff.pid"
-if [ -f "$PIDFILE" ]; then
-    oldpid="$(cat "$PIDFILE")"
-    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
-        log_message "save_poweroff.sh called in duplicate. Ignoring second call."
-        power_trace_emit "INVALID_TRANSITION" "AUTO" "OFF" "RUNNING" "duplicate_shutdown_call" "save_poweroff.sh:reentry_guard" "duplicate save_poweroff invocation ignored" "" "" "" "" "" ""
-        release_singleflight_if_prehandoff_exit "pidfile_duplicate"
-        exit 0
-    fi
-fi
-echo $$ > "$PIDFILE"
+# Re-entry is canonicalized by shutdown_singleflight_* in helperFunctions.sh.
+# Keep shutdown ownership in one place to avoid parallel PID-file contracts.
 trap cleanup_shutdown_attempt EXIT INT TERM
 
 

@@ -43,7 +43,7 @@ watchdog_suspended_or_not_rearmed() {
             return 1
         fi
 
-        if command -v power_mode_is_shutdown_pending >/dev/null 2>&1 && power_mode_is_shutdown_pending; then
+        if shutdown_pending_now; then
             log_message "power_button_watchdog_v2.sh: Suppressing input handling because shutdown is pending."
             return 0
         fi
@@ -52,9 +52,25 @@ watchdog_suspended_or_not_rearmed() {
         return 0
     fi
 
-    # Legacy marker fallback only when power_mode helpers are unavailable.
+    # Legacy marker fallback only when power_mode helpers are unavailable
+    # (partial-upgrade or helper-load failure paths).
     if [ -e /tmp/power_watchdog_suspended ]; then
-        return 0
+        marker_pid="$(cat /tmp/power_watchdog_suspended 2>/dev/null)"
+        case "$marker_pid" in
+            ''|*[!0-9]*)
+                log_message "power_button_watchdog_v2.sh: Clearing malformed legacy suspended marker."
+                rm -f /tmp/power_watchdog_suspended
+                return 1
+                ;;
+        esac
+
+        if kill -0 "$marker_pid" 2>/dev/null; then
+            return 0
+        fi
+
+        log_message "power_button_watchdog_v2.sh: Clearing stale legacy suspended marker pid=${marker_pid}."
+        rm -f /tmp/power_watchdog_suspended
+        return 1
     fi
 
     return 1
@@ -79,11 +95,9 @@ power_key_up () {
         fi
 
         if [ "$was_cancelled" = false ]; then
-            if command -v power_mode_is_shutdown_pending >/dev/null 2>&1 && power_mode_is_shutdown_pending; then
-                # Long-press shutdown may have already emitted SHUTDOWN_BEGIN;
-                # once pending, key-release must not route into sleep_helper.
-                log_message "power_button_watchdog_v2.sh: suppressing short-press sleep because shutdown is pending"
-                power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "short_press_ignored_shutdown_pending" "power_button_watchdog_v2.sh:power_key_up" "sleep suppressed because shutdown already pending" "" "normal" "" "" "" ""
+            if ! sleep_requests_allowed_now; then
+                log_message "power_button_watchdog_v2.sh: suppressing short-press sleep because lifecycle gate denied request"
+                power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "short_press_ignored_lifecycle_gate" "power_button_watchdog_v2.sh:power_key_up" "sleep suppressed by lifecycle gate" "" "normal" "" "" "" ""
             else
                 log_message "power_button_watchdog_v2.sh: invoking sleep_helper.sh after uncancelled short press"
                 /mnt/SDCARD/spruce/scripts/sleep_helper.sh watchdog_short_press
@@ -111,7 +125,8 @@ power_key_down () {
                 if command -v power_mode_mark_shutdown_pending >/dev/null 2>&1; then
                     power_mode_mark_shutdown_pending "power_button_watchdog_v2"
                 fi
-                touch /tmp/power_shutdown_requested
+                # Canonical shutdown marker ownership belongs to save_poweroff entry;
+                # avoid duplicate temp-marker writes here.
                 log_message "power_button_watchdog_v2.sh: marked shutdown pending before poweroff handoff"
                 vibrate &
                 rm -f /tmp/powerbtn
