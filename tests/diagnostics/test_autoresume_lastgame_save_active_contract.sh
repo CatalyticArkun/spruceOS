@@ -36,7 +36,7 @@ lastgame_to_cmd_handoff="$(scan_files_for_pattern '\$MOVE_OR_COPY[[:space:]]+"?/
 assert_file_set_eq "lastgame->cmd autoresume handoff owners" "$lastgame_to_cmd_handoff" 'runtimeHelper.sh'
 
 # lastgame.lock removers are intentionally split: port-exit watcher and shutdown cleanup.
-lastgame_removers="$(scan_files_for_pattern 'rm[[:space:]]+(-[[:alnum:]]+[[:space:]]+)*[^\n]*lastgame\.lock')"
+lastgame_removers="$(scan_files_for_pattern '^[[:space:]]*rm[[:space:]]+(-[[:alnum:]]+[[:space:]]+)*([^[:space:]#]+[[:space:]]+)*"?[^"[:space:]#]*/lastgame\.lock"?([[:space:];|&]|$)')"
 assert_file_set_eq "lastgame removers" "$lastgame_removers" 'homebutton_watchdog.sh
 save_poweroff.sh'
 

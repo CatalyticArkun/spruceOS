@@ -122,12 +122,8 @@ power_key_down () {
             if [ -e /tmp/powerbtn ] && [ ! -e /tmp/powerbtn_cancelled ]; then
                 log_message "power_button_watchdog_v2.sh: Powering off due to power button hold."
                 power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "power_button_hold" "power_button_watchdog_v2.sh:power_key_down" "long press requested poweroff" "" "forced" "autosave_expected" "" "" ""
-                if command -v power_mode_mark_shutdown_pending >/dev/null 2>&1; then
-                    power_mode_mark_shutdown_pending "power_button_watchdog_v2"
-                fi
-                # Canonical shutdown marker ownership belongs to save_poweroff entry;
-                # avoid duplicate temp-marker writes here.
-                log_message "power_button_watchdog_v2.sh: marked shutdown pending before poweroff handoff"
+                # Canonical shutdown ownership belongs to save_poweroff singleflight;
+                # do not pre-mark pending before handoff.
                 vibrate &
                 rm -f /tmp/powerbtn
                 rm -f /tmp/powerbtn_cancelled

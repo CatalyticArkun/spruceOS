@@ -14,7 +14,7 @@ scan() {
     fi
 }
 
-gate_fn_refs="$(scan 'launch_allowed_now\s*\(\)')"
+gate_fn_refs="$(scan 'launch_allowed_now[[:space:]]*\(\)')"
 [ -z "$gate_fn_refs" ] || {
     echo "did not expect redundant launch_allowed_now wrapper after shared helper extraction"
     exit 1

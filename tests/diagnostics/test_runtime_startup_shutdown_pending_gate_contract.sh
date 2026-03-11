@@ -14,7 +14,7 @@ scan() {
     fi
 }
 
-fn_refs="$(scan 'startup_shutdown_pending_now\s*\(\)')"
+fn_refs="$(scan 'startup_shutdown_pending_now[[:space:]]*\(\)')"
 [ -z "$fn_refs" ] || {
     echo "did not expect redundant startup_shutdown_pending_now wrapper after shared helper extraction"
     exit 1
