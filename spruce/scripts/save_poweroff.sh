@@ -70,6 +70,10 @@ else
     power_trace_emit_shutdown_begin_once
 fi
 
+if command -v power_mode_mark_shutdown_pending >/dev/null 2>&1; then
+    power_mode_mark_shutdown_pending "save_poweroff"
+fi
+
 touch /tmp/power_shutdown_requested
 log_message "save_poweroff.sh: marked /tmp/power_shutdown_requested at shutdown entry"
 

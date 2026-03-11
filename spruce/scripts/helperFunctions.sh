@@ -37,11 +37,16 @@ esac
 . /mnt/SDCARD/spruce/scripts/platform/$PLATFORM.cfg
 . /mnt/SDCARD/spruce/scripts/device_functions.sh
 POWER_TRACE_SCRIPT="/mnt/SDCARD/spruce/scripts/power_trace.sh"
+POWER_MODE_SCRIPT="/mnt/SDCARD/spruce/scripts/power_mode.sh"
 if [ -f "$POWER_TRACE_SCRIPT" ]; then
     . "$POWER_TRACE_SCRIPT"
 else
     power_trace_emit() { return 0; }
     power_trace_boot_reconcile_pending() { return 0; }
+fi
+
+if [ -f "$POWER_MODE_SCRIPT" ]; then
+    . "$POWER_MODE_SCRIPT"
 fi
 
 # Call this just by having "acknowledge" in your script

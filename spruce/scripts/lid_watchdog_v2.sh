@@ -16,6 +16,11 @@ fi
 log_message "Lid watchdog started, monitoring lid state"
 
 while true; do
+    if command -v power_mode_is_shutdown_pending >/dev/null 2>&1 && power_mode_is_shutdown_pending; then
+        sleep 0.5
+        continue
+    fi
+
     # Read current lid state (1 = open, 0 = closed)
     current_state=$(device_lid_open)
     
