@@ -2,6 +2,10 @@
 
 . /mnt/SDCARD/spruce/scripts/helperFunctions.sh
 
+# Phase 1 power ownership hardening:
+# watchdog is the canonical raw power-button owner by default.
+export SPRUCE_WATCHDOG_OWNS_POWER_BUTTON="${SPRUCE_WATCHDOG_OWNS_POWER_BUTTON:-1}"
+
 runifnecessary() {
     a=$(pgrep "$1")
     if [ "$a" = "" ] ; then

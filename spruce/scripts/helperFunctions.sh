@@ -275,6 +275,19 @@ shutdown_pending_now() {
     return 1
 }
 
+external_transition_now() {
+    # Optional explicit marker for platform/system-owned transition detection.
+    [ -f /tmp/power_external_transition.lock ] && return 0
+
+    # Best-effort fallback: if system poweroff/reboot utilities are already active,
+    # suppress new Spruce-side initiation attempts.
+    if pgrep -f '(^|/)(poweroff|reboot|shutdown|halt)([[:space:]]|$)' >/dev/null 2>&1; then
+        return 0
+    fi
+
+    return 1
+}
+
 sleep_requests_allowed_now() {
     # Canonical lifecycle gate for new sleep dispatches.
     if command -v power_mode_may_accept_sleep_requests >/dev/null 2>&1; then
@@ -289,21 +302,46 @@ sleep_requests_allowed_now() {
 invoke_save_poweroff_singleflight() {
     local source_ref="${1:-unknown_source}"
     shift || true
+    local requested_kind="shutdown"
+
+    if [ "${1:-}" = "--reboot" ]; then
+        requested_kind="reboot"
+    fi
+
+    if command -v power_trace_tx_is_active_kind >/dev/null 2>&1; then
+        if power_trace_tx_is_active_kind "$requested_kind"; then
+            log_message "Active ${requested_kind} tx already exists; suppressing duplicate request from ${source_ref}."
+            power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "active_tx_same_kind" "helperFunctions.sh:invoke_save_poweroff_singleflight" "same kind active tx suppress source=${source_ref} kind=${requested_kind}" "" "normal" "" "" "" ""
+            return 1
+        fi
+    fi
+
+    if external_transition_now; then
+        log_message "External/system transition already underway; suppressing Spruce shutdown request from ${source_ref}."
+        power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "external_transition_active" "helperFunctions.sh:invoke_save_poweroff_singleflight" "external/system transition already active source=${source_ref}" "" "normal" "" "" "" ""
+        if command -v power_trace_tx_maybe_record_external_live_observation >/dev/null 2>&1; then
+            power_trace_tx_maybe_record_external_live_observation "$requested_kind" "other" "helperFunctions.sh:invoke_save_poweroff_singleflight"
+        fi
+        return 1
+    fi
 
     # Canonical lifecycle fence: avoid duplicate shutdown handoff once
     # power_mode has recorded shutdown pending.
     if shutdown_pending_now; then
         log_message "Shutdown already pending; skipping duplicate request from ${source_ref}."
+        power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "shutdown_pending_duplicate" "helperFunctions.sh:invoke_save_poweroff_singleflight" "shutdown already pending source=${source_ref}" "" "normal" "" "" "" ""
         return 1
     fi
 
     if shutdown_in_progress; then
         log_message "Shutdown already in progress; skipping duplicate request from ${source_ref}."
+        power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "singleflight_in_progress" "helperFunctions.sh:invoke_save_poweroff_singleflight" "shutdown singleflight lock already held source=${source_ref}" "" "normal" "" "" "" ""
         return 1
     fi
 
     if ! shutdown_singleflight_begin "$source_ref"; then
         log_message "Shutdown request race lost; skipping duplicate request from ${source_ref}."
+        power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "singleflight_race_lost" "helperFunctions.sh:invoke_save_poweroff_singleflight" "shutdown singleflight race lost source=${source_ref}" "" "normal" "" "" "" ""
         return 1
     fi
 

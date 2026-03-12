@@ -22,6 +22,7 @@ power_hold_pid=""
 power_mode_watchdog_reconcile_after_rearm() { :; }
 power_mode_watchdog_may_handle_input() { return 1; }
 power_mode_is_shutdown_pending() { return 0; }
+shutdown_pending_now() { power_mode_is_shutdown_pending; }
 
 handle_suppressed_watchdog_window
 rc=$?

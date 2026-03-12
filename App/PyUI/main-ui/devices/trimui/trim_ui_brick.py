@@ -50,13 +50,14 @@ class TrimUIBrick(TrimUIDevice):
                 from controller.controller import Controller
                 #/dev/miyooio if we want to get rid of miyoo_inputd
                 # debug in terminal: hexdump  /dev/miyooio
-                self.volume_key_watcher = KeyWatcher("/dev/input/event3")
+                self.volume_key_watcher = KeyWatcher("/dev/input/event3", allowed_keycodes={114, 115})
                 Controller.add_button_watcher(self.volume_key_watcher.poll_keyboard)
                 volume_key_polling_thread = threading.Thread(target=self.volume_key_watcher.poll_keyboard, daemon=True)
                 volume_key_polling_thread.start()
-                self.power_key_watcher = KeyWatcher("/dev/input/event1")
-                power_key_polling_thread = threading.Thread(target=self.power_key_watcher.poll_keyboard, daemon=True)
-                power_key_polling_thread.start()
+                if(PyUiConfig.enable_power_button_watcher()):
+                    self.power_key_watcher = KeyWatcher("/dev/input/event1", allowed_keycodes={116})
+                    power_key_polling_thread = threading.Thread(target=self.power_key_watcher.poll_keyboard, daemon=True)
+                    power_key_polling_thread.start()
                 # Done to try to account for external systems editting the config file
                 
         super().__init__()

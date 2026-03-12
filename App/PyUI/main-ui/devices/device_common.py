@@ -24,6 +24,7 @@ from utils.py_ui_config import PyUiConfig
 
 
 class DeviceCommon(AbstractDevice):
+    POWER_REQUEST_SCRIPT = "/mnt/SDCARD/spruce/scripts/power_request.sh"
 
     def __init__(self):
         self.last_cache_clear = 0
@@ -44,22 +45,16 @@ class DeviceCommon(AbstractDevice):
             if(Controller.get_input()):
                 if(Controller.last_input() == ControllerInput.A):
                     self.power_off()
-                elif(Controller.last_input() == ControllerInput.X and self.reboot_cmd is not None):
+                elif(Controller.last_input() == ControllerInput.X and self.reboot_cmd() is not None):
                     self.reboot()
                 elif(Controller.last_input() == ControllerInput.B):
                     return
 
     def power_off(self):
-        if PyUiConfig.get_poweroff_cmd():
-            self.run_cmd([PyUiConfig.get_poweroff_cmd()])
-        else:
-            self.run_cmd([self.power_off_cmd()])
+        self.run_cmd([DeviceCommon.POWER_REQUEST_SCRIPT, "shutdown", "ui_prompt"])
 
     def reboot(self):
-        if PyUiConfig.get_reboot_cmd():
-            self.run_cmd([PyUiConfig.get_reboot_cmd()])
-        else:
-            self.run_cmd([self.reboot_cmd()])
+        self.run_cmd([DeviceCommon.POWER_REQUEST_SCRIPT, "reboot", "ui_prompt"])
 
 
     def input_timeout_default(self):

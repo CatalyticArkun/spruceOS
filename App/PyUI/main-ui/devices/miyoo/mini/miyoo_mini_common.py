@@ -118,7 +118,7 @@ class MiyooMiniCommon(MiyooDevice):
             from controller.controller import Controller
             #/dev/miyooio if we want to get rid of miyoo_inputd
             # debug in terminal: hexdump  /dev/miyooio
-            self.volume_key_watcher = KeyWatcher("/dev/input/event0")
+            self.volume_key_watcher = KeyWatcher("/dev/input/event0", allowed_keycodes={114, 115})
             Controller.add_button_watcher(self.volume_key_watcher.poll_keyboard)
             volume_key_polling_thread = threading.Thread(target=self.volume_key_watcher.poll_keyboard, daemon=True)
             volume_key_polling_thread.start()

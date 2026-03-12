@@ -303,6 +303,13 @@ class Controller:
     def non_sdl_input_event(controller_input, is_down):
         TRIGGER_TIME_FOR_HOLD_BUTTONS = 2
 
+        if controller_input == ControllerInput.POWER_BUTTON and not PyUiConfig.enable_raw_power_button_semantics():
+            PyUiLogger.get_logger().info("Raw power-button semantics suppressed (watchdog-owned path)")
+            if(not is_down):
+                Controller.non_sdl_input = None
+                Controller.last_press_time_map.pop(controller_input,None)
+            return
+
         if(is_down):
             if(controller_input in Controller.hold_buttons):
                 if controller_input not in Controller.last_press_time_map:

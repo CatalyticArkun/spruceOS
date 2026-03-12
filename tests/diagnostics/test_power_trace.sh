@@ -49,12 +49,25 @@ assert_no_invalid_transition() {
     fi
 }
 
+assert_tx_field_present() {
+    field="$1"
+    if ! grep -q "\"${field}\":" "$POWER_TRACE_EVENTS_FILE"; then
+        echo "expected tx field ${field} in events output"
+        exit 1
+    fi
+}
+
 # 1) shutdown -> power loss -> boot reconcile
 reset_trace_state
 power_trace_emit "BOOT_BEGIN" "UNKNOWN" "BOOTING" "BOOTING" "test" "test_power_trace.sh" "booting" "" "" "" "" "" ""
 power_trace_emit "BOOT_COMPLETE" "BOOTING" "RUNNING" "RUNNING" "test" "test_power_trace.sh" "boot complete" "" "" "" "" "" ""
 power_trace_emit "SHUTDOWN_BEGIN" "RUNNING" "OFF" "RUNNING" "test" "test_power_trace.sh" "shutdown begin" "" "normal" "" "" "" ""
 power_trace_emit "SHUTDOWN_HANDOFF" "SHUTDOWN_PENDING" "OFF" "OFF" "test" "test_power_trace.sh" "handoff" "" "normal" "" "" "" ""
+assert_tx_field_present "txid"
+assert_tx_field_present "tx_origin"
+assert_tx_field_present "tx_requested_by"
+assert_tx_field_present "tx_kind"
+assert_tx_field_present "tx_phase"
 power_trace_boot_reconcile_pending
 assert_event_count "SHUTDOWN_RECOVERED" 1
 
@@ -127,5 +140,61 @@ assert_event_count "SHUTDOWN_RECOVERED" 2
 
 # global guard: this regression should not emit invalid transitions
 assert_no_invalid_transition
+
+# 7) live external observation should create external EXEC tx when no active spruce tx exists
+reset_trace_state
+power_trace_tx_maybe_record_external_live_observation "shutdown" "other" "test_power_trace.sh"
+if ! grep -q '"tx_origin":"external"' "$POWER_TRACE_EVENTS_FILE"; then
+    echo "expected live external observation to record tx_origin=external"
+    exit 1
+fi
+if ! grep -q '"tx_phase":"EXEC"' "$POWER_TRACE_EVENTS_FILE"; then
+    echo "expected live external observation to record tx_phase=EXEC"
+    exit 1
+fi
+
+# 8) interrupted reconcile by origin and idempotence
+reset_trace_state
+cat > "$POWER_TRACE_PENDING_FILE" <<PENDING_ORIGIN
+pending_kind="SHUTDOWN"
+pending_correlation_id="spruce-int-1"
+pending_source="save_poweroff.sh:startup"
+pending_txid="spruce-int-1"
+pending_tx_origin="spruce"
+pending_tx_requested_by="watchdog"
+pending_tx_kind="shutdown"
+pending_tx_phase="INTERRUPTED"
+PENDING_ORIGIN
+
+power_trace_boot_reconcile_pending
+if ! grep -q '^pt_last_reconciled_pending_key="SHUTDOWN:spruce-int-1"' "$POWER_TRACE_STATE_FILE"; then
+    echo "expected spruce-origin pending key to reconcile"
+    exit 1
+fi
+
+before_reconcile_count="$(event_count "SHUTDOWN_RECOVERED")"
+power_trace_boot_reconcile_pending
+after_reconcile_count="$(event_count "SHUTDOWN_RECOVERED")"
+[ "$before_reconcile_count" -eq "$after_reconcile_count" ] || {
+    echo "expected second reconcile pass to be a no-op"
+    exit 1
+}
+
+cat > "$POWER_TRACE_PENDING_FILE" <<PENDING_EXT
+pending_kind="SHUTDOWN"
+pending_correlation_id="external-int-1"
+pending_source="external"
+pending_txid="external-int-1"
+pending_tx_origin="external"
+pending_tx_requested_by="other"
+pending_tx_kind="shutdown"
+pending_tx_phase="INTERRUPTED"
+PENDING_EXT
+
+power_trace_boot_reconcile_pending
+if ! grep -q '^pt_last_reconciled_pending_key="SHUTDOWN:external-int-1"' "$POWER_TRACE_STATE_FILE"; then
+    echo "expected external-origin pending key to reconcile"
+    exit 1
+fi
 
 echo "test_power_trace: PASS"

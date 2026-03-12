@@ -52,6 +52,11 @@ power_trace_state_defaults() {
     [ -n "${pt_active_transition_id:-}" ] || pt_active_transition_id=""
     [ -n "${pt_event_seq:-}" ] || pt_event_seq="0"
     [ -n "${pt_last_reconciled_pending_key:-}" ] || pt_last_reconciled_pending_key="${pt_last_reconciled_pending_id:-}"
+    [ -n "${pt_active_txid:-}" ] || pt_active_txid=""
+    [ -n "${pt_active_origin:-}" ] || pt_active_origin=""
+    [ -n "${pt_active_requested_by:-}" ] || pt_active_requested_by=""
+    [ -n "${pt_active_kind:-}" ] || pt_active_kind=""
+    [ -n "${pt_active_phase:-}" ] || pt_active_phase=""
 }
 
 power_trace_load_state() {
@@ -74,6 +79,11 @@ pt_completed_state="$pt_completed_state"
 pt_active_transition_id="$pt_active_transition_id"
 pt_event_seq="$pt_event_seq"
 pt_last_reconciled_pending_key="$pt_last_reconciled_pending_key"
+pt_active_txid="$pt_active_txid"
+pt_active_origin="$pt_active_origin"
+pt_active_requested_by="$pt_active_requested_by"
+pt_active_kind="$pt_active_kind"
+pt_active_phase="$pt_active_phase"
 EOF_STATE
     mv "$POWER_TRACE_STATE_FILE.tmp.$$" "$POWER_TRACE_STATE_FILE"
 }
@@ -94,6 +104,55 @@ power_trace_new_correlation_id() {
         return
     fi
     echo "pt-$(date +%s)-$$-${pt_event_seq:-0}"
+}
+
+power_trace_requester_from_source() {
+    src="$1"
+    case "$src" in
+        *watchdog*) echo "watchdog" ;;
+        *menu*|*PyUI*|*pyui*) echo "menu" ;;
+        *ui*) echo "ui" ;;
+        *) echo "other" ;;
+    esac
+}
+
+power_trace_tx_set_active() {
+    pt_active_txid="$1"
+    pt_active_origin="$2"
+    pt_active_requested_by="$3"
+    pt_active_kind="$4"
+    pt_active_phase="$5"
+}
+
+power_trace_tx_clear_active() {
+    pt_active_txid=""
+    pt_active_origin=""
+    pt_active_requested_by=""
+    pt_active_kind=""
+    pt_active_phase=""
+}
+
+power_trace_tx_is_active_kind() {
+    kind="$1"
+    power_trace_load_state
+    [ -n "${pt_active_txid:-}" ] && [ "${pt_active_kind:-}" = "$kind" ]
+}
+
+power_trace_tx_maybe_record_external_live_observation() {
+    kind="$1"
+    requested_by="${2:-other}"
+    source_ref="${3:-external_live_observation}"
+
+    power_trace_load_state
+    if [ -n "${pt_active_txid:-}" ] && [ "${pt_active_origin:-}" = "spruce" ]; then
+        return 0
+    fi
+
+    txid="ext-$(date +%s)-$$-${pt_event_seq:-0}"
+    power_trace_tx_set_active "$txid" "external" "$requested_by" "$kind" "EXEC"
+    power_trace_save_state
+
+    power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "external_live_exec_observed" "$source_ref" "external/system transition observed without active spruce tx kind=${kind}" "" "normal" "" "" "" "" "external"
 }
 
 power_trace_validate_transition() {
@@ -164,29 +223,37 @@ power_trace_apply_snapshot() {
             ;;
         BOOT_COMPLETE)
             power_trace_set_snapshot "RUNNING" "RUNNING" "RUNNING" "RUNNING" "RUNNING" ""
+            power_trace_tx_clear_active
             ;;
         SHUTDOWN_BEGIN)
             power_trace_set_snapshot "SHUTDOWN_PENDING" "SHUTDOWN" "OFF" "RUNNING" "$pt_completed_state" "$corr"
             power_trace_mark_pending "SHUTDOWN" "$corr" "$source_ref"
+            power_trace_tx_set_active "$corr" "spruce" "$(power_trace_requester_from_source "$source_ref")" "shutdown" "INTENT"
             ;;
         SHUTDOWN_HANDOFF)
             active="${pt_active_transition_id:-$corr}"
             power_trace_set_snapshot "SHUTDOWN_PENDING" "SHUTDOWN" "OFF" "OFF" "$pt_completed_state" "$active"
+            power_trace_tx_set_active "${pt_active_txid:-$active}" "${pt_active_origin:-spruce}" "${pt_active_requested_by:-$(power_trace_requester_from_source "$source_ref")}" "${pt_active_kind:-shutdown}" "HANDOFF"
             ;;
         SHUTDOWN_COMPLETE|SHUTDOWN_RECOVERED)
             power_trace_set_snapshot "OFF" "SHUTDOWN" "OFF" "OFF" "OFF" ""
             power_trace_clear_pending
+            [ -n "${pt_active_txid:-}" ] && power_trace_tx_set_active "$pt_active_txid" "${pt_active_origin:-spruce}" "${pt_active_requested_by:-other}" "${pt_active_kind:-shutdown}" "COMPLETE"
+            power_trace_tx_clear_active
             ;;
         REBOOT_BEGIN)
             power_trace_set_snapshot "REBOOT_PENDING" "REBOOT" "BOOTING" "RUNNING" "$pt_completed_state" "$corr"
             power_trace_mark_pending "REBOOT" "$corr" "$source_ref"
+            power_trace_tx_set_active "$corr" "spruce" "$(power_trace_requester_from_source "$source_ref")" "reboot" "INTENT"
             ;;
         SLEEP_PREPARE_BEGIN|SLEEP_PREPARE_COMPLETE|SLEEP_REQUESTED|SLEEP_ENTER_BEGIN)
             power_trace_set_snapshot "SLEEP_PREP" "SLEEP" "SLEEPING" "RUNNING" "$pt_completed_state" "$corr"
             power_trace_mark_pending "SLEEP" "$corr" "$source_ref"
+            power_trace_tx_set_active "$corr" "spruce" "$(power_trace_requester_from_source "$source_ref")" "sleep" "INTENT"
             ;;
         SLEEP_ENTER_COMPLETE)
             power_trace_set_snapshot "SLEEPING" "SLEEP" "SLEEPING" "SLEEPING" "$pt_completed_state" "$corr"
+            power_trace_tx_set_active "${pt_active_txid:-$corr}" "${pt_active_origin:-spruce}" "${pt_active_requested_by:-$(power_trace_requester_from_source "$source_ref")}" "${pt_active_kind:-sleep}" "EXEC"
             ;;
         WAKE_DETECTED|WAKE_RESUME_BEGIN)
             power_trace_set_snapshot "WAKING" "WAKE" "RUNNING" "WAKING" "$pt_completed_state" "$corr"
@@ -194,13 +261,19 @@ power_trace_apply_snapshot() {
         WAKE_RESUME_COMPLETE)
             power_trace_set_snapshot "RUNNING" "WAKE" "RUNNING" "RUNNING" "RUNNING" ""
             power_trace_clear_pending
+            [ -n "${pt_active_txid:-}" ] && power_trace_tx_set_active "$pt_active_txid" "${pt_active_origin:-spruce}" "${pt_active_requested_by:-other}" "${pt_active_kind:-sleep}" "COMPLETE"
+            power_trace_tx_clear_active
             ;;
         DIRTY_STARTUP)
             power_trace_set_snapshot "RUNNING" "RUNNING" "RUNNING" "RUNNING" "RUNNING" ""
+            power_trace_tx_clear_active
             ;;
         TRANSITION_ABORTED|TRANSITION_TIMEOUT|REQUEST_SUPPRESSED|POWER_ERROR|UNKNOWN_TRANSITION|INVALID_TRANSITION)
             # Diagnostic/meta events should not advance canonical milestones.
             power_trace_set_snapshot "$pt_last_state" "$pt_requested_state" "$pt_intended_state" "$pt_observed_state" "$pt_completed_state" "$pt_active_transition_id"
+            if [ -n "${pt_active_txid:-}" ]; then
+                power_trace_tx_set_active "$pt_active_txid" "${pt_active_origin:-spruce}" "${pt_active_requested_by:-other}" "${pt_active_kind:-other}" "INTERRUPTED"
+            fi
             ;;
     esac
 }
@@ -272,14 +345,19 @@ power_trace_emit() {
     json_auto_resume="$(power_trace_escape_json "$autoresume_context")"
     json_error="$(power_trace_escape_json "$error_detail")"
     json_origin="$(power_trace_escape_json "$transition_origin")"
+    json_txid="$(power_trace_escape_json "${pt_active_txid:-}")"
+    json_tx_origin="$(power_trace_escape_json "${pt_active_origin:-}")"
+    json_tx_requested_by="$(power_trace_escape_json "${pt_active_requested_by:-}")"
+    json_tx_kind="$(power_trace_escape_json "${pt_active_kind:-}")"
+    json_tx_phase="$(power_trace_escape_json "${pt_active_phase:-}")"
 
-    printf '{"seq":%s,"event":"%s","ts_monotonic":"%s","ts_wall":"%s","boot_session_id":"%s","correlation_id":"%s","platform":"%s","build":"%s","prev_state":"%s","intended_state":"%s","observed_state":"%s","trigger":"%s","wake_source":"%s","shutdown_reason":"%s","autosave_context":"%s","autoresume_context":"%s","source":"%s","timeout_ms":"%s","error":"%s","transition_origin":"%s","notes":"%s"}\n' \
+    printf '{"seq":%s,"event":"%s","ts_monotonic":"%s","ts_wall":"%s","boot_session_id":"%s","correlation_id":"%s","platform":"%s","build":"%s","prev_state":"%s","intended_state":"%s","observed_state":"%s","trigger":"%s","wake_source":"%s","shutdown_reason":"%s","autosave_context":"%s","autoresume_context":"%s","source":"%s","timeout_ms":"%s","error":"%s","transition_origin":"%s","txid":"%s","tx_origin":"%s","tx_requested_by":"%s","tx_kind":"%s","tx_phase":"%s","notes":"%s"}\n' \
         "$pt_event_seq" "$event" "$ts_mono" "$ts_wall" "$boot_session_id" "$corr" "$platform_id" "$build_id" \
         "$prev_state" "$intended_state" "$observed_state" "$json_trigger" "$json_wake" "$json_shutdown" \
-        "$json_auto_save" "$json_auto_resume" "$json_src" "$timeout_ms" "$json_error" "$json_origin" "$json_notes" >> "$POWER_TRACE_EVENTS_FILE"
+        "$json_auto_save" "$json_auto_resume" "$json_src" "$timeout_ms" "$json_error" "$json_origin" "$json_txid" "$json_tx_origin" "$json_tx_requested_by" "$json_tx_kind" "$json_tx_phase" "$json_notes" >> "$POWER_TRACE_EVENTS_FILE"
 
-    printf '%s | %s | origin=%s prev=%s intended=%s observed=%s trigger=%s notes=%s\n' \
-        "$ts_wall" "$event" "$transition_origin" "$prev_state" "$intended_state" "$observed_state" "$trigger" "$notes" >> "$POWER_TRACE_SUMMARY_FILE"
+    printf '%s | %s | origin=%s txid=%s tx_origin=%s requested_by=%s kind=%s phase=%s prev=%s intended=%s observed=%s trigger=%s notes=%s\n' \
+        "$ts_wall" "$event" "$transition_origin" "${pt_active_txid:-}" "${pt_active_origin:-}" "${pt_active_requested_by:-}" "${pt_active_kind:-}" "${pt_active_phase:-}" "$prev_state" "$intended_state" "$observed_state" "$trigger" "$notes" >> "$POWER_TRACE_SUMMARY_FILE"
 
     power_trace_apply_snapshot "$event" "$corr" "$source_ref" "$observed_state"
 
@@ -298,6 +376,11 @@ pending_correlation_id="$correlation_id"
 pending_source="$source_ref"
 pending_wall_ts="$(power_trace_wall_ts)"
 pending_boot_id="$(power_trace_boot_id)"
+pending_txid="${pt_active_txid:-$correlation_id}"
+pending_tx_origin="${pt_active_origin:-spruce}"
+pending_tx_requested_by="${pt_active_requested_by:-$(power_trace_requester_from_source "$source_ref")}"
+pending_tx_kind="${pt_active_kind:-$(printf '%s' "$pending_kind" | tr 'A-Z' 'a-z')}"
+pending_tx_phase="${pt_active_phase:-INTENT}"
 EOF_PENDING
     mv "$POWER_TRACE_PENDING_FILE.tmp.$$" "$POWER_TRACE_PENDING_FILE"
 }
@@ -319,6 +402,14 @@ power_trace_boot_reconcile_pending() {
     fi
 
     emitted=0
+    if [ -n "${pending_txid:-}" ]; then
+        power_trace_tx_set_active "$pending_txid" "${pending_tx_origin:-external}" "${pending_tx_requested_by:-other}" "${pending_tx_kind:-$(printf '%s' "${pending_kind:-UNKNOWN}" | tr 'A-Z' 'a-z')}" "RECOVERY_PENDING"
+    else
+        recover_kind="$(printf '%s' "${pending_kind:-UNKNOWN}" | tr 'A-Z' 'a-z')"
+        power_trace_tx_set_active "rec-$(date +%s)-$$-${pt_event_seq:-0}" "external" "other" "$recover_kind" "RECOVERY_PENDING"
+    fi
+    power_trace_save_state
+
     case "$pending_kind" in
         SLEEP)
             power_trace_emit "WAKE_DETECTED" "UNKNOWN" "RUNNING" "RUNNING" "boot_reconcile" "runtime.sh:power_trace_boot_reconcile_pending" "Wake observed during new boot session without WAKE_RESUME_COMPLETE in prior session" "unknown" "" "" "" "" "" "recovered" &&
@@ -336,9 +427,14 @@ power_trace_boot_reconcile_pending() {
     esac
 
     if [ "$emitted" -eq 1 ]; then
+        if [ -n "${pt_active_txid:-}" ]; then
+            power_trace_tx_set_active "$pt_active_txid" "${pt_active_origin:-external}" "${pt_active_requested_by:-other}" "${pt_active_kind:-other}" "RECOVERED"
+        fi
         pt_last_reconciled_pending_key="$pending_key"
         power_trace_save_state
         power_trace_clear_pending
+        power_trace_tx_clear_active
+        power_trace_save_state
     fi
 }
 

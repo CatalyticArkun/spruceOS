@@ -20,8 +20,9 @@ KEY_REPEAT = 2
 
 class KeyWatcher:
 
-    def __init__(self, event_path):
+    def __init__(self, event_path, allowed_keycodes=None):
         self.event_path = event_path
+        self.allowed_keycodes = set(allowed_keycodes) if allowed_keycodes is not None else None
         self.held_keys = {}  # Maps keycode -> last seen time
         self.repeat_interval = 0.2  # seconds
         try:
@@ -47,6 +48,8 @@ class KeyWatcher:
                 if len(data) == EVENT_SIZE:
                     _, _, event_type, code, value = struct.unpack(EVENT_FORMAT, data)
                     if event_type == EV_KEY:
+                        if self.allowed_keycodes is not None and code not in self.allowed_keycodes:
+                            continue
                         if value == KEY_PRESS:
                             self.held_keys[code] = now
                             return (code, True)

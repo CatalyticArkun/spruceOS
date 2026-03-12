@@ -86,6 +86,22 @@ class PyUiConfig:
         return cls._data.get("enableButtonWatchers", True)
 
     @classmethod
+    def enable_power_button_watcher(cls):
+        explicit = cls._data.get("enablePowerButtonWatcher", None)
+        if explicit is not None:
+            return explicit
+
+        return os.environ.get("SPRUCE_WATCHDOG_OWNS_POWER_BUTTON", "1") != "1"
+
+    @classmethod
+    def enable_raw_power_button_semantics(cls):
+        explicit = cls._data.get("enableRawPowerButtonSemantics", None)
+        if explicit is not None:
+            return explicit
+
+        return os.environ.get("SPRUCE_WATCHDOG_OWNS_POWER_BUTTON", "1") != "1"
+
+    @classmethod
     def enable_wifi_monitor(cls):
         return cls._data.get("enableWifiMonitor", True)
 
