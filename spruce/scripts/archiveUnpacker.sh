@@ -97,6 +97,10 @@ case "$RUN_MODE" in
         unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking" &
     fi
     ;;
+"pre_menu")
+    unpack_archives "$THEME_DIR"
+    unpack_archives "$ARCHIVE_DIR/preMenu" "pre_menu_unpacking"
+    ;;
 "pre_cmd")
     unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking"
     ;;
