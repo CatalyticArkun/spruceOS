@@ -49,7 +49,7 @@ class KeyWatcher:
                     _, _, event_type, code, value = struct.unpack(EVENT_FORMAT, data)
                     if event_type == EV_KEY:
                         if self.allowed_keycodes is not None and code not in self.allowed_keycodes:
-                            continue
+                            return (None, None)
                         if value == KEY_PRESS:
                             self.held_keys[code] = now
                             return (code, True)
