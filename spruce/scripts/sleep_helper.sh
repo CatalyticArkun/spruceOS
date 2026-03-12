@@ -4,6 +4,7 @@
 
 if [ -e /tmp/sleep_helper_started ]; then
     log_message "Sleep helper already active, skipping. /tmp/sleep_helper_started exists" -v
+    power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "SLEEPING" "RUNNING" "power_button" "sleep_helper.sh:main" "sleep helper already active" "" "" "" "" "" ""
     exit 0 
 fi
 
@@ -70,6 +71,7 @@ get_shutdown_timer() {
 
 trigger_sleep() {
     power_trace_emit "SLEEP_PREPARE_BEGIN" "AUTO" "SLEEPING" "RUNNING" "power_button" "sleep_helper.sh:trigger_sleep" "sleep helper invoked" "" "" "autosave_possible" "" "" ""
+    audio_trace_emit "MUTE_ON_SLEEP" source=sleep_helper.sh:trigger_sleep volume=0 reason=sleep_prepare
     log_message "Entering sleep"
     lid_ever_closed=false
     sleep_exited=false
@@ -77,8 +79,13 @@ trigger_sleep() {
     local IDLE_TIMEOUT
     IDLE_TIMEOUT=$(get_shutdown_timer)
     start_ts=$(date +%s)
+    audio_trace_emit "VOLUME_SET_ATTEMPT" source=sleep_helper.sh:trigger_sleep volume=0 reason=mute_on_sleep
     set_volume 0 false # Mute on sleep so when we wake to shutdown it's silent
+    audio_trace_emit "VOLUME_SET_COMPLETE" source=sleep_helper.sh:trigger_sleep volume=0 outcome=requested
+    power_trace_emit "SLEEP_PREPARE_COMPLETE" "AUTO" "SLEEPING" "RUNNING" "power_button" "sleep_helper.sh:trigger_sleep" "sleep preparation complete" "" "" "autosave_possible" "" "" ""
+    power_trace_emit "SLEEP_ENTER_BEGIN" "AUTO" "SLEEPING" "RUNNING" "power_button" "sleep_helper.sh:trigger_sleep" "device_enter_sleep called" "" "" "" "" "" ""
     device_enter_sleep "$IDLE_TIMEOUT"
+    power_trace_emit "SLEEP_ENTER_COMPLETE" "AUTO" "SLEEPING" "SLEEPING" "power_button" "sleep_helper.sh:trigger_sleep" "device entered sleep" "" "" "" "" "" ""
     if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
         log_message "Device uses pseudosleep -- starting idle loop"
         log_message "Starting idle timeout countdown: ${IDLE_TIMEOUT}s until poweroff if lid remains closed"
@@ -97,15 +104,18 @@ trigger_sleep() {
             # If lid opened, restore screen and break
             if [ "$current_lid_state" = "1" ] && [ "$lid_ever_closed" = true ]; then
                 log_message "Lid opened"
+                power_trace_emit "WAKE_DETECTED" "AUTO" "RUNNING" "WAKING" "lid_open" "sleep_helper.sh:trigger_sleep" "pseudosleep wake via lid open" "lid" "" "" "" "" ""
                 sleep_exited=true 
                 break
             elif power_button_pressed; then
                 if [ "$current_lid_state" = "1" ]; then
                     log_message "Power button pressed, exiting pseudosleep"
+                    power_trace_emit "WAKE_DETECTED" "AUTO" "RUNNING" "WAKING" "power_button" "sleep_helper.sh:trigger_sleep" "pseudosleep wake via power button" "power_button" "" "" "" "" ""
                     sleep_exited=true 
                     break
                 else
                     log_message "Power button pressed but lid is closed, continuing pseudosleep"
+                    power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "SLEEPING" "SLEEPING" "power_button" "sleep_helper.sh:trigger_sleep" "wake suppressed because lid is closed" "" "" "" "" "" ""
                 fi
             fi
 
@@ -117,6 +127,7 @@ trigger_sleep() {
         # Timeout reached without exitting sleep → poweroff
         if [ "$sleep_exited" = false ]; then
             log_message "Lid closed for ${IDLE_TIMEOUT}s, triggering poweroff"
+            power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "SLEEPING" "sleep_timeout" "sleep_helper.sh:trigger_sleep" "timed poweroff from pseudosleep" "timer" "timeout" "" "" "$((IDLE_TIMEOUT * 1000))" ""
             # Set clocks bad to full speed
             set_performance
             sleep 0.1
@@ -136,10 +147,12 @@ trigger_sleep() {
 
         if [ "$(device_woke_via_timer)" = "true" ]; then
             log_message "Idle time exceeded, triggering poweroff -- IDLE_TIMEOUT=$IDLE_TIMEOUT"
+            power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "SLEEPING" "sleep_timeout" "sleep_helper.sh:trigger_sleep" "timed poweroff from device sleep" "timer" "timeout" "" "" "$((IDLE_TIMEOUT * 1000))" ""
             sleep 0.1
             "$POWER_OFF_SCRIPT" &
         else
             log_message "Woke from sleep manually"
+            power_trace_emit "WAKE_DETECTED" "AUTO" "RUNNING" "WAKING" "manual_wake" "sleep_helper.sh:trigger_sleep" "woke from sleep manually" "unknown" "" "" "" "" ""
         fi
     fi
 }
@@ -153,7 +166,11 @@ log_activity_event "$current_app" "START"
 
 # Restore volume before unpausing so audio is ready
 VOLUME_LV=$(jq -r '.vol' "$SYSTEM_JSON")
+audio_trace_emit "RESTORE_ON_WAKE" source=sleep_helper.sh:main volume="$VOLUME_LV" reason=wake_resume
+audio_trace_emit "VOLUME_SET_ATTEMPT" source=sleep_helper.sh:main volume="$VOLUME_LV" reason=restore_on_wake
 set_volume "$VOLUME_LV"
+audio_trace_emit "VOLUME_SET_COMPLETE" source=sleep_helper.sh:main volume="$VOLUME_LV" outcome=requested
+power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "resume_complete" "sleep_helper.sh:main" "post-wake restore complete" "" "" "" "" "" ""
 
 
 kill "$GET_EVENT_PID" 2>/dev/null

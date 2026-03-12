@@ -7,6 +7,22 @@ POWER_TRACE_STATE_FILE="$POWER_TRACE_DIR/state.env"
 POWER_TRACE_PENDING_FILE="$POWER_TRACE_DIR/pending.env"
 POWER_TRACE_MAX_EVENTS="${POWER_TRACE_MAX_EVENTS:-400}"
 POWER_TRACE_MAX_SUMMARY_LINES="${POWER_TRACE_MAX_SUMMARY_LINES:-120}"
+TRACE_CORE_SCRIPT="/mnt/SDCARD/spruce/scripts/trace.sh"
+
+if [ -f "$TRACE_CORE_SCRIPT" ]; then
+    # shellcheck disable=SC1090
+    . "$TRACE_CORE_SCRIPT"
+fi
+
+power_trace_gate_enabled() {
+    if command -v trace_gate_enabled >/dev/null 2>&1; then
+        trace_gate_enabled "power"
+        return $?
+    fi
+
+    [ "${POWER_TRACE_ENABLED:-1}" = "0" ] && return 1
+    return 0
+}
 
 power_trace_supported_event() {
     case "$1" in
@@ -40,7 +56,11 @@ power_trace_build() {
 }
 
 power_trace_escape_json() {
-    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+    if command -v trace_escape_json >/dev/null 2>&1; then
+        trace_escape_json "$1"
+    else
+        printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+    fi
 }
 
 power_trace_state_defaults() {
@@ -206,6 +226,8 @@ power_trace_apply_snapshot() {
 }
 
 power_trace_emit() {
+    power_trace_gate_enabled || return 0
+
     event="$1"
     prev_state="$2"
     intended_state="$3"
@@ -239,7 +261,11 @@ power_trace_emit() {
         return 1
     fi
 
-    pt_event_seq=$(( ${pt_event_seq:-0} + 1 ))
+    if command -v trace_next_seq >/dev/null 2>&1; then
+        pt_event_seq="$(trace_next_seq)"
+    else
+        pt_event_seq=$(( ${pt_event_seq:-0} + 1 ))
+    fi
     corr="$(power_trace_new_correlation_id)"
     ts_mono="$(power_trace_monotonic_ts)"
     ts_wall="$(power_trace_wall_ts)"
@@ -273,19 +299,26 @@ power_trace_emit() {
     json_error="$(power_trace_escape_json "$error_detail")"
     json_origin="$(power_trace_escape_json "$transition_origin")"
 
-    printf '{"seq":%s,"event":"%s","ts_monotonic":"%s","ts_wall":"%s","boot_session_id":"%s","correlation_id":"%s","platform":"%s","build":"%s","prev_state":"%s","intended_state":"%s","observed_state":"%s","trigger":"%s","wake_source":"%s","shutdown_reason":"%s","autosave_context":"%s","autoresume_context":"%s","source":"%s","timeout_ms":"%s","error":"%s","transition_origin":"%s","notes":"%s"}\n' \
+    json_line=$(printf '{"seq":%s,"domain":"power","event":"%s","ts_monotonic":"%s","ts_wall":"%s","boot_session_id":"%s","correlation_id":"%s","platform":"%s","build":"%s","prev_state":"%s","intended_state":"%s","observed_state":"%s","trigger":"%s","wake_source":"%s","shutdown_reason":"%s","autosave_context":"%s","autoresume_context":"%s","source":"%s","timeout_ms":"%s","error":"%s","transition_origin":"%s","notes":"%s"}' \
         "$pt_event_seq" "$event" "$ts_mono" "$ts_wall" "$boot_session_id" "$corr" "$platform_id" "$build_id" \
         "$prev_state" "$intended_state" "$observed_state" "$json_trigger" "$json_wake" "$json_shutdown" \
-        "$json_auto_save" "$json_auto_resume" "$json_src" "$timeout_ms" "$json_error" "$json_origin" "$json_notes" >> "$POWER_TRACE_EVENTS_FILE"
+        "$json_auto_save" "$json_auto_resume" "$json_src" "$timeout_ms" "$json_error" "$json_origin" "$json_notes")
 
-    printf '%s | %s | origin=%s prev=%s intended=%s observed=%s trigger=%s notes=%s\n' \
-        "$ts_wall" "$event" "$transition_origin" "$prev_state" "$intended_state" "$observed_state" "$trigger" "$notes" >> "$POWER_TRACE_SUMMARY_FILE"
+    summary_line=$(printf '%s | %s | origin=%s prev=%s intended=%s observed=%s trigger=%s notes=%s' \
+        "$ts_wall" "$event" "$transition_origin" "$prev_state" "$intended_state" "$observed_state" "$trigger" "$notes")
+
+    if command -v trace_emit_core >/dev/null 2>&1; then
+        trace_emit_core "$POWER_TRACE_EVENTS_FILE" "$POWER_TRACE_SUMMARY_FILE" "$POWER_TRACE_MAX_EVENTS" "$POWER_TRACE_MAX_SUMMARY_LINES" "$json_line" "$summary_line"
+    else
+        printf '%s\n' "$json_line" >> "$POWER_TRACE_EVENTS_FILE"
+        printf '%s\n' "$summary_line" >> "$POWER_TRACE_SUMMARY_FILE"
+        power_trace_trim_file "$POWER_TRACE_EVENTS_FILE" "$POWER_TRACE_MAX_EVENTS"
+        power_trace_trim_file "$POWER_TRACE_SUMMARY_FILE" "$POWER_TRACE_MAX_SUMMARY_LINES"
+    fi
 
     power_trace_apply_snapshot "$event" "$corr" "$source_ref" "$observed_state"
 
     power_trace_save_state
-    power_trace_trim_file "$POWER_TRACE_EVENTS_FILE" "$POWER_TRACE_MAX_EVENTS"
-    power_trace_trim_file "$POWER_TRACE_SUMMARY_FILE" "$POWER_TRACE_MAX_SUMMARY_LINES"
 }
 
 power_trace_mark_pending() {
