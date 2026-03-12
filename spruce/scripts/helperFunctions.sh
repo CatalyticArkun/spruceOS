@@ -317,8 +317,8 @@ invoke_save_poweroff_singleflight() {
     fi
 
     if external_transition_now; then
-        log_message "External/system transition already underway; suppressing Spruce shutdown request from ${source_ref}."
-        power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "external_transition_active" "helperFunctions.sh:invoke_save_poweroff_singleflight" "external/system transition already active source=${source_ref}" "" "normal" "" "" "" ""
+        log_message "External/system transition already underway; suppressing Spruce ${requested_kind} request from ${source_ref}."
+        power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "external_transition_active" "helperFunctions.sh:invoke_save_poweroff_singleflight" "external/system transition already active source=${source_ref} kind=${requested_kind}" "" "normal" "" "" "" ""
         if command -v power_trace_tx_maybe_record_external_live_observation >/dev/null 2>&1; then
             power_trace_tx_maybe_record_external_live_observation "$requested_kind" "other" "helperFunctions.sh:invoke_save_poweroff_singleflight"
         fi
