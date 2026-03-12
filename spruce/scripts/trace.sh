@@ -127,6 +127,7 @@ trace_ensure_dirs() {
 trace_next_seq() {
     trace_load_state
     trace_seq=$(( ${trace_seq:-0} + 1 ))
+    printf '%s\n' "$trace_seq"
     # Persist periodically to reduce per-event write amplification.
     # This preserves strict ordering inside one shell process while allowing
     # bounded cross-process drift between flushes.
@@ -148,6 +149,8 @@ trace_emit_core() {
     summary_line="$6"
 
     trace_ensure_dirs
+    mkdir -p "$(dirname "$events_file")"
+    mkdir -p "$(dirname "$summary_file")"
     printf '%s\n' "$json_line" >> "$events_file"
     printf '%s\n' "$summary_line" >> "$summary_file"
 
