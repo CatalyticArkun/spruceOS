@@ -83,9 +83,6 @@ trigger_sleep() {
     # Kill exclusive getevent to prevent buffered wake button events
     # from causing a re-sleep loop. The power watchdog's outer loop
     # will restart getevent fresh after sleep_helper exits.
-    power_trace_emit "SLEEP_PREPARE_COMPLETE" "AUTO" "SLEEPING" "RUNNING" "pre_sleep_ready" "sleep_helper.sh:trigger_sleep" "pre-sleep preparation done" "" "" "autosave_possible" "" "" ""
-    power_trace_emit "SLEEP_REQUESTED" "AUTO" "SLEEPING" "RUNNING" "sleep_request" "sleep_helper.sh:trigger_sleep" "calling device_enter_sleep" "" "" "" "" "" ""
-    power_trace_emit "SLEEP_ENTER_BEGIN" "AUTO" "SLEEPING" "RUNNING" "sleep_entry" "sleep_helper.sh:trigger_sleep" "about to enter device sleep" "" "" "" "" "" ""
     if [ "$(device_uses_pseudo_sleep)" != "true" ]; then
         kill $(pgrep -f "getevent.*-exclusive") 2>/dev/null
         sleep 0.3
@@ -131,7 +128,6 @@ trigger_sleep() {
 
         # Timeout reached without exitting sleep → poweroff
         if [ "$sleep_exited" = false ]; then
-            power_trace_emit "TRANSITION_TIMEOUT" "AUTO" "RUNNING" "SLEEPING" "sleep_timeout" "sleep_helper.sh:trigger_sleep" "pseudo-sleep timeout hit; requesting poweroff" "" "idle_timeout" "" "" "" "$((IDLE_TIMEOUT * 1000))"
             log_message "Lid closed for ${IDLE_TIMEOUT}s, triggering poweroff"
             # Set clocks bad to full speed
             set_performance
@@ -151,12 +147,10 @@ trigger_sleep() {
 
 
         if [ "$(device_woke_via_timer)" = "true" ]; then
-            power_trace_emit "TRANSITION_TIMEOUT" "AUTO" "RUNNING" "SLEEPING" "rtc_timeout" "sleep_helper.sh:trigger_sleep" "woke via timer and escalating to poweroff" "rtc" "idle_timeout" "" "" "" "$((IDLE_TIMEOUT * 1000))"
             log_message "Idle time exceeded, triggering poweroff -- IDLE_TIMEOUT=$IDLE_TIMEOUT"
             sleep 0.1
             "$POWER_OFF_SCRIPT" &
         else
-            power_trace_emit "WAKE_DETECTED" "AUTO" "RUNNING" "WAKING" "manual" "sleep_helper.sh:trigger_sleep" "manual wake detected" "power_button_or_lid" "" "" "" "" ""
             log_message "Woke from sleep manually"
         fi
     fi
