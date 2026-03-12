@@ -1047,6 +1047,7 @@ disable_wifi() {
 
     if [ -e /tmp/wifioff ]; then
         wifi_trace_emit "DISABLE_NOOP" source=helperFunctions.sh:disable_wifi reason=already_disabled
+        # TODO(trace): Revisit NOOP semantics; this currently traces NOOP but continues execution.
     fi
 
     ifconfig wlan0 down         2>/dev/null
@@ -1064,6 +1065,7 @@ enable_wifi() {
 
     if [ -e /tmp/wifion ]; then
         wifi_trace_emit "ENABLE_NOOP" source=helperFunctions.sh:enable_wifi reason=already_enabled
+        # TODO(trace): Revisit NOOP semantics; this currently traces NOOP but continues execution.
     fi
 
     device_wifi_power_on
