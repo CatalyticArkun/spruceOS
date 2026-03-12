@@ -26,8 +26,14 @@ power_key_up () {
         fi
 
         if [ "$was_cancelled" = false ]; then
+            if ! sleep_requests_allowed_now; then
+                power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "SLEEPING" "RUNNING" "power_button_short_press" "power_button_watchdog_v2.sh:power_key_up" "sleep request suppressed; lifecycle gate closed" "" "normal" "" "" "" ""
+                return
+            fi
             power_trace_emit "SLEEP_REQUESTED" "AUTO" "SLEEPING" "RUNNING" "power_button_short_press" "power_button_watchdog_v2.sh:power_key_up" "short press requested sleep" "" "normal" "" "" "" ""
             /mnt/SDCARD/spruce/scripts/sleep_helper.sh
+        else
+            power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "SLEEPING" "RUNNING" "power_button_short_press" "power_button_watchdog_v2.sh:power_key_up" "sleep request cancelled by combo input" "" "normal" "" "" "" ""
         fi
     else
         log_message "Power button released during cooldown at $(date +%s)"  
@@ -48,6 +54,11 @@ power_key_down () {
             sleep "$power_hold_time"
             # Check if the powerbtn file still exists (i.e. button still held) AND NOT cancelled (i.e. no other button pressed)
             if [ -e /tmp/powerbtn ] && [ ! -e /tmp/powerbtn_cancelled ]; then
+                if power_trace_shutdown_pending; then
+                    power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "OFF" "RUNNING" "power_button_hold" "power_button_watchdog_v2.sh:power_key_down" "long press duplicate_request while shutdown pending" "" "forced" "autosave_expected" "" "" ""
+                    rm -f /tmp/powerbtn
+                    return
+                fi
                 log_message "power_button_watchdog_v2.sh: Powering off due to power button hold."
                 power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "power_button_hold" "power_button_watchdog_v2.sh:power_key_down" "long press requested poweroff" "" "forced" "autosave_expected" "" "" ""
                 vibrate &
@@ -82,6 +93,8 @@ while true; do
                     log_message "power_button_watchdog_v2.sh: power_key_down"
                     power_key_down
                     PREV_WAS_POWER=1
+                else
+                    power_trace_emit "REQUEST_SUPPRESSED" "AUTO" "RUNNING" "RUNNING" "power_button_debounce" "power_button_watchdog_v2.sh:main" "duplicate_request suppressed by debounce" "" "normal" "" "" "" ""
                 fi
                 ;;
 
