@@ -6,13 +6,20 @@ ARCHIVE_DIR="/mnt/SDCARD/spruce/archives"
 ICON="/mnt/SDCARD/spruce/imgs/iconfresh.png"
 
 . /mnt/SDCARD/spruce/scripts/helperFunctions.sh
-# This is a service to unpack archives that a preformatted to land in the right place.
-# Since some files need to be available before the menu is displayed, we need to unpack them before the menu is displayed so that's one mode.
-# The other mode is to unpack archives needed before the command_to_run, this is used for the preCmd folder.
-
-# This can be called with a "pre_cmd" argument to run a check and unpack over the preCmd folder only.
-# Typically you'd use that for any unpacking process since we don't want extraction to happen in the background.
-# It's rather resource heavy and we don't want leave it running in the background.
+# Unpack service for staged .7z archives with absolute /mnt/SDCARD paths.
+#
+# Run modes:
+#   all      - default startup behavior:
+#              * unpack themes ($THEME_DIR)
+#              * unpack pre-menu assets ($ARCHIVE_DIR/preMenu)
+#              * unpack pre-command assets ($ARCHIVE_DIR/preCmd), backgrounded when no save is active
+#   pre_menu - first-boot preparation mode used before firstboot.sh:
+#              * unpack themes ($THEME_DIR)
+#              * unpack pre-menu assets ($ARCHIVE_DIR/preMenu)
+#              * does not unpack preCmd assets
+#   pre_cmd  - unpack pre-command assets only ($ARCHIVE_DIR/preCmd)
+#
+# Use --silent to suppress UI output and coordinate with other unpacker instances.
 
 #  If a silentUnpacker flag is present another script is running and we don't want to run this one.
 if flag_check "silentUnpacker"; then
