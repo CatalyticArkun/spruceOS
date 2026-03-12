@@ -99,37 +99,11 @@ enable_or_disable_rgb() {
 }
 
 enter_sleep() {
-    log_message "Entering pseudo-sleep (wait for power)"
-
-    # Block until power button is pressed to wake
-    local wake_fifo="/tmp/sleep_wake_fifo.$$"
-    rm -f "$wake_fifo"
-    mkfifo "$wake_fifo"
-    getevent "$EVENT_PATH_POWER" > "$wake_fifo" 2>/dev/null &
-    local gev_pid=$!
-    exec 4< "$wake_fifo"
-    while IFS= read -r line <&4; do
-        case "$line" in
-            *"key $B_POWER 1"*)
-                break
-                ;;
-        esac
-    done
-    exec 4<&-
-    kill "$gev_pid" 2>/dev/null
-    wait "$gev_pid" 2>/dev/null
-    rm -f "$wake_fifo"
-
-    log_message "Exiting pseudo-sleep"
+    log_message "Keymon handles sleep, not spruce" -v
 }
 
 get_current_volume() {
-    # Return config-level volume (0-20) to match what set_volume expects
-    jq -r '.vol' "$SYSTEM_JSON"
-}
-
-device_specific_wake_from_sleep() {
-    log_message "MiyooMini wake - nothing extra needed" -v
+    log_message "Intentionally do not let spruce modify volume" -v
 }
 
 reset_playback_pack() {
@@ -229,15 +203,16 @@ set_volume() {
     # NOTE: This won't always work. They will often just error.
     # But sometimes they do work. It's based on if something else is already controlling the volume.
     # The main purpose of this is for NDS volume since drastic does some weird stuff
-    # Might be worth considering adding an if block of if <x> is running then do this
-    
-    VOLUME_LV="$1"
-    SAVE_TO_CONFIG="${2:-true}"   # Optional 2nd arg, defaults to true
-    /mnt/SDCARD/spruce/scripts/platform/device_functions/miyoomini/mm_set_volume.py "$VOLUME_LV" &
+    # Can add more apps as needed
+    if pgrep -f "./drastic(32|64)?" >/dev/null; then
+        VOLUME_LV="$1"
+        SAVE_TO_CONFIG="${2:-true}"   # Optional 2nd arg, defaults to true
+        /mnt/SDCARD/spruce/scripts/platform/device_functions/miyoomini/mm_set_volume.py "$VOLUME_LV" &
 
-    # Call save_volume_to_config_file only if SAVE_TO_CONFIG is true
-    if [ "$SAVE_TO_CONFIG" = true ]; then
-        save_volume_to_config_file "$VOLUME_LV"
+        # Call save_volume_to_config_file only if SAVE_TO_CONFIG is true
+        if [ "$SAVE_TO_CONFIG" = true ]; then
+            save_volume_to_config_file "$VOLUME_LV"
+        fi
     fi
 }
 
@@ -321,11 +296,20 @@ device_exit_sleep() {
     else
         echo "50" > "$BRIGHTNESS_FILE" 2>/dev/null              # default if previous not found
     fi
-    [ -e "$BUTTON_ENABLE_FILE" ] && echo "Y" > "$BUTTON_ENABLE_FILE" 2>/dev/null # re-enable input
     rm -f /tmp/screen_blanked /tmp/saved_brightness             # clean up temp files
 
     sleep 0.5
     send_event /dev/input/event0 116:1 
+
+
+    if [ "$(get_miyoo_mini_variant)" != "MIYOO_MINI_FLIP" ]; then
+        #TODO don't have a mini to test on but this should potentially be
+        #MMP only
+        echo 1 > /sys/module/gpio_keys_polled/parameters/button_enable
+    else
+        [ -e "$BUTTON_ENABLE_FILE" ] && echo "Y" > "$BUTTON_ENABLE_FILE" 2>/dev/null # re-enable input
+
+    fi
 
     pgrep retroarch 2>/dev/null && set_smart # return to smart mode
 }

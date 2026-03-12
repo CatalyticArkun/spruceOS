@@ -78,19 +78,7 @@ trigger_sleep() {
     IDLE_TIMEOUT=$(get_shutdown_timer)
     start_ts=$(date +%s)
     set_volume 0 false # Mute on sleep so when we wake to shutdown it's silent
-    pause_emulators
-    sleep 0.5
-    # Kill exclusive getevent to prevent buffered wake button events
-    # from causing a re-sleep loop. The power watchdog's outer loop
-    # will restart getevent fresh after sleep_helper exits.
-    if [ "$(device_uses_pseudo_sleep)" != "true" ]; then
-        kill $(pgrep -f "getevent.*-exclusive") 2>/dev/null
-        sleep 0.3
-    fi
-    if ! device_enter_sleep "$IDLE_TIMEOUT"; then
-        power_trace_emit "POWER_ERROR" "AUTO" "SLEEPING" "RUNNING" "device_enter_sleep" "sleep_helper.sh:trigger_sleep" "device_enter_sleep failed" "" "" "" "" "device_enter_sleep_returned_nonzero" ""
-    fi
-    power_trace_emit "SLEEP_ENTER_COMPLETE" "AUTO" "SLEEPING" "SLEEPING" "sleep_entered" "sleep_helper.sh:trigger_sleep" "device sleep call returned" "" "" "" "" "" ""
+    device_enter_sleep "$IDLE_TIMEOUT"
     if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
         log_message "Device uses pseudosleep -- starting idle loop"
         log_message "Starting idle timeout countdown: ${IDLE_TIMEOUT}s until poweroff if lid remains closed"
@@ -167,8 +155,6 @@ log_activity_event "$current_app" "START"
 VOLUME_LV=$(jq -r '.vol' "$SYSTEM_JSON")
 set_volume "$VOLUME_LV"
 
-unpause_emulators
-power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "resume_complete" "sleep_helper.sh:main" "post-wake restore complete" "" "" "" "" "" ""
 
 kill "$GET_EVENT_PID" 2>/dev/null
 
