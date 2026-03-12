@@ -69,6 +69,7 @@ get_shutdown_timer() {
 
 
 trigger_sleep() {
+    power_trace_emit "SLEEP_PREPARE_BEGIN" "AUTO" "SLEEPING" "RUNNING" "power_button" "sleep_helper.sh:trigger_sleep" "sleep helper invoked" "" "" "autosave_possible" "" "" ""
     log_message "Entering sleep"
     lid_ever_closed=false
     sleep_exited=false
@@ -86,7 +87,10 @@ trigger_sleep() {
         kill $(pgrep -f "getevent.*-exclusive") 2>/dev/null
         sleep 0.3
     fi
-    device_enter_sleep "$IDLE_TIMEOUT"
+    if ! device_enter_sleep "$IDLE_TIMEOUT"; then
+        power_trace_emit "POWER_ERROR" "AUTO" "SLEEPING" "RUNNING" "device_enter_sleep" "sleep_helper.sh:trigger_sleep" "device_enter_sleep failed" "" "" "" "" "device_enter_sleep_returned_nonzero" ""
+    fi
+    power_trace_emit "SLEEP_ENTER_COMPLETE" "AUTO" "SLEEPING" "SLEEPING" "sleep_entered" "sleep_helper.sh:trigger_sleep" "device sleep call returned" "" "" "" "" "" ""
     if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
         log_message "Device uses pseudosleep -- starting idle loop"
         log_message "Starting idle timeout countdown: ${IDLE_TIMEOUT}s until poweroff if lid remains closed"
@@ -154,6 +158,7 @@ trigger_sleep() {
 
 trigger_sleep
 
+power_trace_emit "WAKE_RESUME_BEGIN" "AUTO" "RUNNING" "WAKING" "resume_start" "sleep_helper.sh:main" "beginning post-wake restore" "" "" "" "" "" ""
 device_exit_sleep
 
 log_activity_event "$current_app" "START"
@@ -163,6 +168,7 @@ VOLUME_LV=$(jq -r '.vol' "$SYSTEM_JSON")
 set_volume "$VOLUME_LV"
 
 unpause_emulators
+power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "resume_complete" "sleep_helper.sh:main" "post-wake restore complete" "" "" "" "" "" ""
 
 kill "$GET_EVENT_PID" 2>/dev/null
 
