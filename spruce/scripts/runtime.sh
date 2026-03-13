@@ -35,8 +35,58 @@ unstage_archives_wanted
 check_and_handle_firmware_app &
 check_and_hide_update_app &
 
-# Check for first_boot flags and run Unpacker accordingly
-if flag_check "first_boot_${PLATFORM}"; then
+startup_unpack_artifacts_clean() {
+    if flag_check "pre_menu_unpacking" || flag_check "pre_cmd_unpacking" || flag_check "themes_unpacking"; then
+        return 1
+    fi
+
+    for check_dir in \
+        "/mnt/SDCARD/spruce/archives/preMenu" \
+        "/mnt/SDCARD/spruce/archives/preCmd" \
+        "/mnt/SDCARD/Themes" \
+        "/mnt/SDCARD/RetroArch/.retroarch/assets"
+    do
+        [ -d "$check_dir" ] || continue
+        if find "$check_dir" -maxdepth 1 \( -name '*.7z' -o -name '*.7z.extracting' \) | head -n 1 | grep -q .; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+# Check for first_boot lifecycle flags and run recovery flow when required
+FIRST_BOOT_FLAG="first_boot_${PLATFORM}"
+FIRST_BOOT_IN_PROGRESS_FLAG="first_boot_${PLATFORM}_in_progress"
+FIRST_BOOT_COMPLETE_FLAG="first_boot_${PLATFORM}_complete"
+FIRST_BOOT_VERIFIED_FLAG="first_boot_${PLATFORM}_complete_verified"
+
+run_firstboot_recovery=false
+
+if flag_check "$FIRST_BOOT_COMPLETE_FLAG" && ! flag_check "$FIRST_BOOT_VERIFIED_FLAG"; then
+    if startup_unpack_artifacts_clean; then
+        log_message "Firstboot complete marker verified"
+        flag_add "$FIRST_BOOT_VERIFIED_FLAG"
+    else
+        log_message "Firstboot verification failed; forcing recovery"
+        flag_remove "$FIRST_BOOT_COMPLETE_FLAG"
+        flag_remove "$FIRST_BOOT_VERIFIED_FLAG"
+        flag_add "$FIRST_BOOT_IN_PROGRESS_FLAG"
+        run_firstboot_recovery=true
+    fi
+fi
+
+if flag_check "$FIRST_BOOT_IN_PROGRESS_FLAG" && ! flag_check "$FIRST_BOOT_COMPLETE_FLAG"; then
+    log_message "Firstboot recovery detected after interrupted startup"
+    run_firstboot_recovery=true
+fi
+
+if flag_check "$FIRST_BOOT_FLAG"; then
+    run_firstboot_recovery=true
+fi
+
+if [ "$run_firstboot_recovery" = "true" ]; then
+    /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent &
     "/mnt/SDCARD/spruce/scripts/firstboot.sh"
 else
     /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh
