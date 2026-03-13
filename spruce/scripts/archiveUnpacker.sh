@@ -29,11 +29,50 @@ fi
 
 log_message "Unpacker: Script started"
 
+own_lock() {
+    local lock_name="$1"
+    local lock_opt="$2"
+
+    flag_add "$lock_name" "$lock_opt"
+
+    case " $LOCKS_OWNED " in
+        *" $lock_name "*) ;;
+        *)
+            if [ -n "$LOCKS_OWNED" ]; then
+                LOCKS_OWNED="$LOCKS_OWNED $lock_name"
+            else
+                LOCKS_OWNED="$lock_name"
+            fi
+            ;;
+    esac
+}
+
+release_lock() {
+    local lock_name="$1"
+    local new_locks=""
+    local owned_lock
+
+    flag_remove "$lock_name"
+
+    for owned_lock in $LOCKS_OWNED; do
+        [ "$owned_lock" = "$lock_name" ] && continue
+        if [ -n "$new_locks" ]; then
+            new_locks="$new_locks $owned_lock"
+        else
+            new_locks="$owned_lock"
+        fi
+    done
+
+    LOCKS_OWNED="$new_locks"
+}
+
 cleanup() {
-    flag_remove "silentUnpacker"
-    flag_remove "pre_menu_unpacking"
-    flag_remove "pre_cmd_unpacking"
-    flag_remove "themes_unpacking"
+    local lock_name
+    local owned_locks_snapshot="$LOCKS_OWNED"
+
+    for lock_name in $owned_locks_snapshot; do
+        release_lock "$lock_name"
+    done
 }
 
 # Set trap for script exit
@@ -42,7 +81,7 @@ trap cleanup EXIT
 # Process command line arguments
 RUN_MODE="all"
 if [ "$1" = "--silent" ]; then
-    flag_add "silentUnpacker" --tmp
+    own_lock "silentUnpacker" "--tmp"
     [ -n "$2" ] && RUN_MODE="$2"
 elif [ -n "$1" ]; then
     RUN_MODE="$1"
@@ -81,7 +120,7 @@ unpack_archives() {
     local dir="$1"
     local flag_name="$2"
 
-    [ -n "$flag_name" ] && flag_add "$flag_name" --tmp
+    [ -n "$flag_name" ] && own_lock "$flag_name"
 
     for archive in "$dir"/*.7z.extracting "$dir"/*.7z; do
         [ -f "$archive" ] || continue
@@ -103,7 +142,7 @@ unpack_archives() {
         extract_archive "$archive"
     done
 
-    [ -n "$flag_name" ] && flag_remove "$flag_name"
+    [ -n "$flag_name" ] && release_lock "$flag_name"
 }
 
 has_pending_archives() {
@@ -133,25 +172,24 @@ log_message "Unpacker: Starting theme and archive unpacking process"
 # Process archives based on run mode
 case "$RUN_MODE" in
 "all")
-    flag_add "pre_menu_unpacking" --tmp
-    flag_add "themes_unpacking" --tmp
-    if flag_check "save_active" || has_pending_archives "$ARCHIVE_DIR/preCmd"; then
-        flag_add "pre_cmd_unpacking" --tmp
-    fi
+    own_lock "themes_unpacking"
+    unpack_archives "$THEME_DIR"
+    unpack_archives "$RA_THEME_DIR"
+    release_lock "themes_unpacking"
 
-    unpack_archives "$THEME_DIR" "themes_unpacking"
-    unpack_archives "$RA_THEME_DIR" "themes_unpacking"
     unpack_archives "$ARCHIVE_DIR/preMenu" "pre_menu_unpacking"
     if flag_check "save_active"; then
         unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking"
     else
-        flag_add "silentUnpacker" --tmp
-        unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking" &
+        /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_cmd &
     fi
     ;;
 "pre_menu")
-    unpack_archives "$THEME_DIR" "themes_unpacking"
-    unpack_archives "$RA_THEME_DIR" "themes_unpacking"
+    own_lock "themes_unpacking"
+    unpack_archives "$THEME_DIR"
+    unpack_archives "$RA_THEME_DIR"
+    release_lock "themes_unpacking"
+
     unpack_archives "$ARCHIVE_DIR/preMenu" "pre_menu_unpacking"
     ;;
 "pre_cmd")
