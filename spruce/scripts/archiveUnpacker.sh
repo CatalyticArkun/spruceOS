@@ -172,13 +172,15 @@ log_message "Unpacker: Starting theme and archive unpacking process"
 # Process archives based on run mode
 case "$RUN_MODE" in
 "all")
-    own_lock "pre_menu_unpacking"
     own_lock "themes_unpacking"
     unpack_archives "$THEME_DIR"
     unpack_archives "$RA_THEME_DIR"
     release_lock "themes_unpacking"
 
+    own_lock "pre_menu_unpacking"
     unpack_archives "$ARCHIVE_DIR/preMenu"
+    release_lock "pre_menu_unpacking"
+
     if flag_check "save_active"; then
         unpack_archives "$ARCHIVE_DIR/preCmd" "pre_cmd_unpacking"
     else
@@ -187,15 +189,14 @@ case "$RUN_MODE" in
             *) /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_cmd & ;;
         esac
     fi
-    release_lock "pre_menu_unpacking"
     ;;
 "pre_menu")
-    own_lock "pre_menu_unpacking"
     own_lock "themes_unpacking"
     unpack_archives "$THEME_DIR"
     unpack_archives "$RA_THEME_DIR"
     release_lock "themes_unpacking"
 
+    own_lock "pre_menu_unpacking"
     unpack_archives "$ARCHIVE_DIR/preMenu"
     release_lock "pre_menu_unpacking"
     ;;
