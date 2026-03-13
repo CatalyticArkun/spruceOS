@@ -17,6 +17,11 @@ SPLORE_CART="/mnt/SDCARD/Roms/PICO8/-=☆ Launch Splore ☆=-.splore"
 
 
 display_image_and_text "$SPRUCE_LOGO" 35 25 "Installing spruce $SPRUCE_VERSION" 75
+
+/mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_menu &
+PRE_MENU_UNPACK_PID=$!
+log_message "Unpacker pre_menu stage started in background for first_boot"
+
 sleep 5 # make sure installing spruce logo stays up longer; gives more time for XMB to unpack too
 
 SSH_SERVICE_NAME=$(get_ssh_service_name)
@@ -53,13 +58,15 @@ sleep 5
 
 perform_fw_check
 
-if flag_check "pre_menu_unpacking"; then
+if kill -0 "$PRE_MENU_UNPACK_PID" 2>/dev/null; then
     display_image_and_text "$UNPACKING_ICON" 35 25 "Finishing up unpacking themes and files.........." 75
-    flag_remove "silentUnpacker"
-    while flag_check "pre_menu_unpacking"; do
-        sleep 0.2
-    done
 fi
+
+wait "$PRE_MENU_UNPACK_PID"
+log_message "Unpacker pre_menu stage completed for first_boot"
+
+/mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_cmd &
+log_message "Unpacker pre_cmd stage started in background for first_boot"
 
 # create splore launcher if it doesn't already exist
 if [ ! -f "$SPLORE_CART" ]; then

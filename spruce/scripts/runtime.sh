@@ -37,10 +37,6 @@ check_and_hide_update_app &
 
 # Check for first_boot flags and run Unpacker accordingly
 if flag_check "first_boot_${PLATFORM}"; then
-    /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_menu
-    log_message "Unpacker pre_menu stage completed for first_boot"
-    /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh --silent pre_cmd &
-    log_message "Unpacker pre_cmd stage started in background for first_boot"
     "/mnt/SDCARD/spruce/scripts/firstboot.sh"
 else
     /mnt/SDCARD/spruce/scripts/archiveUnpacker.sh
