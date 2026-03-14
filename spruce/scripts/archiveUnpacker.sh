@@ -172,12 +172,15 @@ log_message "Unpacker: Starting theme and archive unpacking process"
 # Process archives based on run mode
 case "$RUN_MODE" in
 "all")
+    # Hold pre_menu_unpacking across both theme and pre-menu assets so that
+    # finish_unpacking "pre_menu_unpacking" only returns once everything needed
+    # for the menu (themes + preMenu) is ready.
+    own_lock "pre_menu_unpacking"
     own_lock "themes_unpacking"
     unpack_archives "$THEME_DIR"
     unpack_archives "$RA_THEME_DIR"
     release_lock "themes_unpacking"
 
-    own_lock "pre_menu_unpacking"
     unpack_archives "$ARCHIVE_DIR/preMenu"
     release_lock "pre_menu_unpacking"
 
@@ -191,12 +194,14 @@ case "$RUN_MODE" in
     fi
     ;;
 "pre_menu")
+    # As in 'all' mode, keep pre_menu_unpacking held while themes and pre-menu
+    # assets are unpacked, so waiters on this lock see a fully prepared menu.
+    own_lock "pre_menu_unpacking"
     own_lock "themes_unpacking"
     unpack_archives "$THEME_DIR"
     unpack_archives "$RA_THEME_DIR"
     release_lock "themes_unpacking"
 
-    own_lock "pre_menu_unpacking"
     unpack_archives "$ARCHIVE_DIR/preMenu"
     release_lock "pre_menu_unpacking"
     ;;
