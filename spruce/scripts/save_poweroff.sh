@@ -9,8 +9,8 @@ FLAGS_DIR="/mnt/SDCARD/spruce/flags"
 BG_TREE="/mnt/SDCARD/spruce/imgs/tree_sm_close_crop.png"
 SAVE_IMG="/mnt/SDCARD/spruce/imgs/save.png"
 
-EMU_PROCESSES="RA32.A30 ra64.miyoo ra32.miyoo retroarch
-retroarch.$PLATFORM retroarch.trimui ra64.trimui_$PLATFORM ra64.universal \
+EMU_PROCESSES="ra64.miyoo ra32.miyoo retroarch
+retroarch.$PLATFORM retroarch.trimui ra64.trimui_$PLATFORM \
 drastic drastic32 drastic64 pico8_dyn pico8_64 \
 flycast flycast-stock yabasanshiro yabasanshiro.trimui \
 mupen64plus PPSSPPSDL PPSSPPSDL_TrimUI PPSSPPSDL_$PLATFORM"
@@ -23,6 +23,61 @@ if [ "$1" = "--reboot" ]; then
 else
     s2_arg=""
 fi
+
+shutdown_guard_claimed="false"
+if [ "${SHUTDOWN_GUARD_OWNED:-0}" = "1" ]; then
+    shutdown_guard_claimed="true"
+elif shutdown_singleflight_begin "save_poweroff.sh:entry"; then
+    shutdown_guard_claimed="true"
+else
+    log_message "save_poweroff.sh: shutdown already in progress. Ignoring duplicate call before startup sequence."
+    power_trace_emit "INVALID_TRANSITION" "AUTO" "OFF" "RUNNING" "duplicate_shutdown_call" "save_poweroff.sh:singleflight_guard" "duplicate save_poweroff invocation ignored by shutdown guard" "" "" "" "" "" ""
+    exit 0
+fi
+
+shutdown_handoff_started="false"
+
+release_singleflight_if_prehandoff_exit() {
+    reason="${1:-unknown}"
+
+    if [ "$shutdown_guard_claimed" = "true" ] && [ "$shutdown_handoff_started" != "true" ]; then
+        shutdown_singleflight_clear
+        log_message "save_poweroff.sh: released shutdown singleflight guard before irreversible handoff (reason=${reason})"
+        power_trace_emit "TRANSITION_ABORTED" "AUTO" "OFF" "RUNNING" "shutdown_prehandoff_exit" "save_poweroff.sh:singleflight_release" "singleflight guard released before irreversible handoff reason=${reason}" "" "" "" "" "" ""
+    fi
+}
+
+power_trace_shutdown_already_pending() {
+    if ! command -v power_trace_load_state >/dev/null 2>&1; then
+        return 1
+    fi
+
+    power_trace_load_state
+    [ "${pt_last_state:-}" = "SHUTDOWN_PENDING" ] && [ "${pt_requested_state:-}" = "SHUTDOWN" ]
+}
+
+power_trace_emit_shutdown_begin_once() {
+    if power_trace_shutdown_already_pending; then
+        power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "save_poweroff_entry" "save_poweroff.sh:startup" "shutdown already pending before save_poweroff entry" "" "normal" "autosave_expected" "" "" ""
+    else
+        power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "shutdown path requested" "" "normal" "autosave_expected" "" "" ""
+    fi
+}
+
+if [ "$s2_arg" = "--reboot" ]; then
+    power_trace_emit "REBOOT_BEGIN" "AUTO" "BOOTING" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "reboot path requested" "" "reboot" "" "" "" ""
+else
+    power_trace_emit_shutdown_begin_once
+fi
+
+if command -v power_mode_mark_shutdown_pending >/dev/null 2>&1; then
+    power_mode_mark_shutdown_pending "save_poweroff"
+fi
+
+touch /tmp/power_shutdown_requested
+log_message "save_poweroff.sh: marked /tmp/power_shutdown_requested at shutdown entry"
+
+shutdown_had_emu=false
 
 ##### FUNCTION DEFINITIONS ####################
 
@@ -145,6 +200,26 @@ wait_for_graceful_emu_exit() {
     done
 }
 
+any_emu_is_running() {
+    for process in $EMU_PROCESSES; do
+        if killall -q -0 "$process" 2>/dev/null; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+dismiss_active_emu_menu_state() {
+    command -v send_menu_button_to_retroarch >/dev/null 2>&1 || return 0
+
+    if pgrep -f "ra32.miyoo|retroarch|PPSSPPSDL" >/dev/null 2>&1; then
+        log_message "save_poweroff.sh: attempting to dismiss in-game menu before emulator shutdown"
+        send_menu_button_to_retroarch
+        sleep 0.1
+    fi
+}
+
 close_forcefully_all_emus() {
     for process in $EMU_PROCESSES; do
         killall -q -0 "$process" 2>/dev/null && killall -q -9 "$process" 2>/dev/null
@@ -238,21 +313,38 @@ kill_remaining_background_processes() {
 }
 
 clean_up_flags() {
-    # Set flag to trigger autoresume on boot if appropriate
+    # Preserve autoresume only when shutdown came from an active game context
+    # and we still have a command to resume.
     if flag_check "in_menu"; then
+        # Menu-origin shutdown should not seed autoresume into a stale/ambiguous target,
+        # while game-origin shutdown may preserve resume state when context is valid.
         flag_remove "save_active"
-    else
+        rm -f "${FLAGS_DIR}/lastgame.lock"
+        log_message "save_poweroff.sh: clean_up_flags -> in_menu=true, save_active cleared, lastgame.lock cleared"
+    elif [ "$shutdown_had_emu" = "true" ] && [ -f "${FLAGS_DIR}/lastgame.lock" ]; then
         flag_add "save_active"
+        log_message "save_poweroff.sh: clean_up_flags -> shutdown_had_emu=true and lastgame.lock present, save_active set"
+    else
+        flag_remove "save_active"
+        log_message "save_poweroff.sh: clean_up_flags -> not preserving autoresume (shutdown_had_emu=${shutdown_had_emu}, lastgame_lock=$([ -f "${FLAGS_DIR}/lastgame.lock" ] && echo present || echo missing))"
     fi
     flag_remove "sleep.powerdown"
     flag_remove "emulator_launched"
     flag_remove "setting_cpu" # in case one of the set_cpu_mode() functions got interrupted
+
+    if flag_check "in_menu"; then
+        in_menu_state="true"
+    else
+        in_menu_state="false"
+    fi
+    log_message "save_poweroff.sh: autoresume decision summary save_active=$([ -f "${FLAGS_DIR}/save_active.lock" ] && echo true || echo false) lastgame_lock=$([ -f "${FLAGS_DIR}/lastgame.lock" ] && echo present || echo missing) shutdown_had_emu=${shutdown_had_emu} in_menu=${in_menu_state}"
 }
 
 exec_shutdown_stage_2() {
     log_message "Running stage 2 of save_poweroff from /tmp."
     sync
     if [ -e "$STAGE_2_SD_PATH" ]; then
+        shutdown_handoff_started="true"
         cp $STAGE_2_SD_PATH $STAGE_2_TMP_PATH
         chmod +x $STAGE_2_TMP_PATH
         # Reset environment BEFORE exec so the new shell interpreter
@@ -262,24 +354,19 @@ exec_shutdown_stage_2() {
         exec "$STAGE_2_TMP_PATH" "$s2_arg"
     else
         log_message "ERROR: Stage 2 script missing! Executing run_poweroff_cmd() instead."
+        power_trace_emit "POWER_ERROR" "AUTO" "OFF" "RUNNING" "stage2_missing" "save_poweroff.sh:exec_shutdown_stage_2" "stage2 shutdown script missing" "" "" "" "" "stage2_script_missing" ""
+        shutdown_handoff_started="true"
         run_poweroff_cmd
     fi
 }
 
-    #######################################
-##### PREVENT RE-ENTRY IF ALREADY RUNNING #####
-    #######################################
+cleanup_shutdown_attempt() {
+    release_singleflight_if_prehandoff_exit "script_exit"
+}
 
-PIDFILE="/tmp/save_poweroff.pid"
-if [ -f "$PIDFILE" ]; then
-    oldpid="$(cat "$PIDFILE")"
-    if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then
-    log_message "save_poweroff.sh called in duplicate. Ignoring second call."
-        exit 0
-    fi
-fi
-echo $$ > "$PIDFILE"
-trap 'rm -f "$PIDFILE"' EXIT INT TERM
+# Re-entry is canonicalized by shutdown_singleflight_* in helperFunctions.sh.
+# Keep shutdown ownership in one place to avoid parallel PID-file contracts.
+trap cleanup_shutdown_attempt EXIT INT TERM
 
 
 
@@ -290,13 +377,24 @@ trap 'rm -f "$PIDFILE"' EXIT INT TERM
 blink_led_if_applicable
 device_prepare_for_poweroff
 log_activity_event "$(get_current_app)" "STOP"
+# Sample emulator context before watchdog/process teardown so gameplay-origin
+# shutdowns are not misclassified if emulators exit during shutdown sequencing.
+if any_emu_is_running; then
+    shutdown_had_emu=true
+    log_message "save_poweroff.sh: preflight detected active emulator context"
+fi
 stop_problematic_scripts
 
-if ! flag_check "in_menu"; then
+if any_emu_is_running; then
+    shutdown_had_emu=true
+    dismiss_active_emu_menu_state
     attempt_to_close_emu_gracefully
     wait_for_graceful_emu_exit
     sync
     close_forcefully_all_emus
+fi
+
+if ! flag_check "in_menu"; then
     close_non_emu_cmd_to_run
 fi
 
@@ -310,8 +408,11 @@ kill_remaining_background_processes
 if device_system_handles_sdcard_unmount; then
 
     if [ "$s2_arg" = "--reboot" ]; then
+        shutdown_handoff_started="true"
         device_run_reboot_cmd
     else
+        power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "systemd_path" "save_poweroff.sh:systemd" "platform manages shutdown sequence directly" "" "normal" "" "" "" ""
+        shutdown_handoff_started="true"
         run_poweroff_cmd
     fi
 

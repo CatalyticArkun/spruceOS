@@ -104,14 +104,17 @@ enter_sleep() {
 
 get_current_volume() {
     log_message "Intentionally do not let spruce modify volume" -v
+    audio_trace_emit "VOLUME_NOOP" source=MiyooMini.sh:get_current_volume reason=intentionally_skipped details=keymon_owned
 }
 
 reset_playback_pack() {
     log_message "Intentionally do not let spruce modify audio, let keymon" -v
+    audio_trace_emit "AUDIO_REINIT_NOOP" source=MiyooMini.sh:reset_playback_pack reason=intentionally_skipped details=keymon_owned
 }
 
 run_mixer_watchdog() {
     log_message "Intentionally do not let spruce modify audio, let keymon" -v
+    audio_trace_emit "AUDIO_REINIT_NOOP" source=MiyooMini.sh:run_mixer_watchdog reason=intentionally_skipped details=keymon_owned
 }
 
 new_execution_loop() {
@@ -148,9 +151,14 @@ post_pyui_exit(){
 }
 
 launch_startup_watchdogs(){
+    # Keep keymon disabled to avoid dual ownership of /dev/input/event0.
+    killall -9 keymon 2>/dev/null
+
     if [ "$(get_miyoo_mini_variant)" = "MIYOO_MINI_FLIP" ]; then
+        log_message "Launching MiyooMini startup watchdogs (v2, has lid sensor)"
         launch_common_startup_watchdogs_v2 "true"
     else
+        log_message "Launching MiyooMini startup watchdogs (v2, no lid sensor)"
         launch_common_startup_watchdogs_v2 "false"
     fi
 }
@@ -202,12 +210,16 @@ set_volume() {
     if pgrep -f "./drastic(32|64)?" >/dev/null; then
         VOLUME_LV="$1"
         SAVE_TO_CONFIG="${2:-true}"   # Optional 2nd arg, defaults to true
+        audio_trace_emit "VOLUME_SET_ATTEMPT" source=MiyooMini.sh:set_volume volume="$VOLUME_LV" reason=drastic_active
         /mnt/SDCARD/spruce/scripts/platform/device_functions/miyoomini/mm_set_volume.py "$VOLUME_LV" &
 
         # Call save_volume_to_config_file only if SAVE_TO_CONFIG is true
         if [ "$SAVE_TO_CONFIG" = true ]; then
             save_volume_to_config_file "$VOLUME_LV"
         fi
+        audio_trace_emit "VOLUME_SET_COMPLETE" source=MiyooMini.sh:set_volume volume="$VOLUME_LV" outcome=best_effort
+    else
+        audio_trace_emit "VOLUME_SET_SKIPPED" source=MiyooMini.sh:set_volume reason=intentionally_skipped details=unsupported_on_platform
     fi
 }
 
@@ -376,4 +388,11 @@ device_system_handles_sdcard_unmount() {
     # return 0 = true
     # return non-zero = false
     return 0
+}
+device_power_trace_capabilities() {
+    echo "sleep_signal=pseudo_or_hybrid wake_source=power_or_lid lid_sensor=optional rtc_alarm=limited"
+}
+
+device_power_trace_notes() {
+    echo "sleep implemented via process pause/screen blank/cpuclock; not always kernel suspend"
 }

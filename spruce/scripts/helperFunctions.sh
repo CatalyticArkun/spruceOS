@@ -17,47 +17,47 @@
 export FLAGS_DIR="/mnt/SDCARD/spruce/flags"
 export MESSAGES_FILE="/var/log/messages"
 POWER_OFF_SCRIPT="/mnt/SDCARD/spruce/scripts/save_poweroff.sh"
+SHUTDOWN_GUARD_DIR="/tmp/shutdown_in_progress.lockdir"
 
 # Export for enabling SSL support in CURL
 export SSL_CERT_FILE=/mnt/SDCARD/spruce/etc/ca-certificates.crt
 
 # Detect device and export to any script sourcing helperFunctions
 INFO=$(cat /proc/cpuinfo 2> /dev/null)
-
 case $INFO in
-    *sun8i*) export PLATFORM="A30" ;;
-    *TG5040*) export PLATFORM="SmartPro" ;;
-    *TG3040*) export PLATFORM="Brick" ;;
-    *TG5050*) export PLATFORM="SmartProS" ;;
-    *0xd05*) export PLATFORM="Flip" ;;
-    *0xd04*) export PLATFORM="Pixel2" ;;
-    *0xd03*)
-        CMDLINE=$(cat /proc/cmdline)
-
-        case $CMDLINE in
-            *lcd_type=boe*)
-                export PLATFORM="AnbernicRG34XXSP"
-                ;;
-            *lcd_type=old*)
-                #TODO handle cube?
-                if strings /mnt/vendor/bin/dmenu.bin 2>/dev/null | grep -q '^RG28xx'; then
-                    export PLATFORM="AnbernicRG28XX"
-                else
-                    export PLATFORM="AnbernicXX640480"
-                fi
-                ;;
-            *)
-                export PLATFORM="AnbernicXX640480"
-                ;;
-        esac
-        ;;
-    *)
-        export PLATFORM="MiyooMini"
-        ;;
+    *"sun8i"*) export PLATFORM="A30" ;;
+    *"TG5040"*)	export PLATFORM="SmartPro" ;;
+    *"TG3040"*)	export PLATFORM="Brick"	;;
+    *"TG5050"*)	export PLATFORM="SmartProS"	;;
+    *"0xd05"*) export PLATFORM="Flip" ;;
+    *"0xd04"*) export PLATFORM="Pixel2" ;;
+    *) export PLATFORM="MiyooMini" ;;
 esac
 
 . /mnt/SDCARD/spruce/scripts/platform/$PLATFORM.cfg
 . /mnt/SDCARD/spruce/scripts/device_functions.sh
+TRACE_SCRIPT="/mnt/SDCARD/spruce/scripts/trace.sh"
+POWER_TRACE_SCRIPT="/mnt/SDCARD/spruce/scripts/power_trace.sh"
+POWER_MODE_SCRIPT="/mnt/SDCARD/spruce/scripts/power_mode.sh"
+
+if [ -f "$TRACE_SCRIPT" ]; then
+    . "$TRACE_SCRIPT"
+else
+    trace_emit() { return 0; }
+    audio_trace_emit() { return 0; }
+    wifi_trace_emit() { return 0; }
+fi
+
+if [ -f "$POWER_TRACE_SCRIPT" ]; then
+    . "$POWER_TRACE_SCRIPT"
+else
+    power_trace_emit() { return 0; }
+    power_trace_boot_reconcile_pending() { return 0; }
+fi
+
+if [ -f "$POWER_MODE_SCRIPT" ]; then
+    . "$POWER_MODE_SCRIPT"
+fi
 
 # Call this just by having "acknowledge" in your script
 # This will pause until the user presses the A, B, or Start button
@@ -169,12 +169,24 @@ dim_screen() {
 
 finish_unpacking() {
     flag="$1"
-    if flag_check "$flag"; then
+    observed="false"
+    grace_checks=15 # 1.5s max to catch slightly-late lock publication
+
+    while [ "$grace_checks" -gt 0 ]; do
+        if flag_check "$flag"; then
+            observed="true"
+            break
+        fi
+        grace_checks=$((grace_checks - 1))
+        sleep 0.1
+    done
+
+    if [ "$observed" = "true" ]; then
         start_pyui_message_writer
         log_and_display_message "Finishing up unpacking archives.........."
         flag_remove "silentUnpacker"
-        while [ -f "$FLAGS_DIR/$flag.lock" ]; do
-            : # null operation (no sleep needed)
+        while flag_check "$flag"; do
+            sleep 0.05
         done
         stop_pyui_message_writer
     fi
@@ -218,6 +230,76 @@ flag_remove() {
     local flag_name="$1"
     rm -f "$FLAGS_DIR/${flag_name}.lock"
     rm -f "/tmp/${flag_name}.lock"
+}
+
+shutdown_in_progress() {
+    [ -d "$SHUTDOWN_GUARD_DIR" ]
+}
+
+shutdown_singleflight_begin() {
+    local source_ref="${1:-unknown_source}"
+
+    if mkdir "$SHUTDOWN_GUARD_DIR" 2>/dev/null; then
+        printf '%s pid=%s ts=%s\n' "$source_ref" "$$" "$(date +%s)" > "$SHUTDOWN_GUARD_DIR/owner" 2>/dev/null || true
+        return 0
+    fi
+
+    return 1
+}
+
+shutdown_singleflight_clear() {
+    rm -rf "$SHUTDOWN_GUARD_DIR"
+}
+
+shutdown_pending_now() {
+    # Canonical lifecycle fence: prefer power_mode state when available.
+    if command -v power_mode_is_shutdown_pending >/dev/null 2>&1; then
+        power_mode_is_shutdown_pending
+        return $?
+    fi
+
+    # Compatibility fallback for partial-upgrade/helper-unavailable cases.
+    if command -v power_trace_shutdown_pending >/dev/null 2>&1; then
+        power_trace_shutdown_pending
+        return $?
+    fi
+
+    return 1
+}
+
+sleep_requests_allowed_now() {
+    # Canonical lifecycle gate for new sleep dispatches.
+    if command -v power_mode_may_accept_sleep_requests >/dev/null 2>&1; then
+        power_mode_may_accept_sleep_requests
+        return $?
+    fi
+
+    shutdown_pending_now && return 1
+    return 0
+}
+
+invoke_save_poweroff_singleflight() {
+    local source_ref="${1:-unknown_source}"
+    shift || true
+
+    # Canonical lifecycle fence: avoid duplicate shutdown handoff once
+    # power_mode has recorded shutdown pending.
+    if shutdown_pending_now; then
+        log_message "Shutdown already pending; skipping duplicate request from ${source_ref}."
+        return 1
+    fi
+
+    if shutdown_in_progress; then
+        log_message "Shutdown already in progress; skipping duplicate request from ${source_ref}."
+        return 1
+    fi
+
+    if ! shutdown_singleflight_begin "$source_ref"; then
+        log_message "Shutdown request race lost; skipping duplicate request from ${source_ref}."
+        return 1
+    fi
+
+    SHUTDOWN_GUARD_OWNED=1 "$POWER_OFF_SCRIPT" "$@"
 }
 
 # Call this to get the last button pressed
@@ -904,10 +986,9 @@ extract_7z_with_progress() {
     UPDATE_FILE="$1"
     DEST_DIR="$2"
     LOG_LOCATION="$3" # Only logs errors
-    DISPLAY_LABEL="$4" # Optional: static label to show instead of filenames
 
     if [ -z "$UPDATE_FILE" ] || [ -z "$DEST_DIR" ] || [ -z "$LOG_LOCATION" ]; then
-        echo "Usage: extract_7z_with_progress <archive.7z> <destination> <log_file> [display_label]"
+        echo "Usage: extract_7z_with_progress <archive.7z> <destination> <log_file> <logo_image>"
         return 1
     fi
 
@@ -938,7 +1019,7 @@ extract_7z_with_progress() {
 
         if [ $((FILE_COUNT % THROTTLE)) -eq 0 ] || [ "$FILE_COUNT" -eq "$TOTAL_FILES" ]; then
             display_text_with_percentage_bar \
-                "${DISPLAY_LABEL:-$FILE}" \
+                "$FILE" \
                 "$PERCENT_COMPLETE" \
                 "$FILE_COUNT / $TOTAL_FILES files"
         fi
@@ -962,6 +1043,13 @@ extract_7z_with_progress() {
 ##### WIFI HANDLING #####
 
 disable_wifi() {
+    wifi_trace_emit "DISABLE_REQUESTED" source=helperFunctions.sh:disable_wifi reason=user_or_system_request
+
+    if [ -e /tmp/wifioff ]; then
+        wifi_trace_emit "DISABLE_NOOP" source=helperFunctions.sh:disable_wifi reason=already_disabled
+        # TODO(trace): Revisit NOOP semantics; this currently traces NOOP but continues execution.
+    fi
+
     ifconfig wlan0 down         2>/dev/null
     rm -f /tmp/wifion           2>/dev/null
     touch /tmp/wifioff          2>/dev/null
@@ -969,9 +1057,17 @@ disable_wifi() {
     killall -9 udhcpc           2>/dev/null
     log_message "WiFi turned off"
     device_wifi_power_off
+    wifi_trace_emit "DISABLE_COMPLETE" source=helperFunctions.sh:disable_wifi outcome=success
 }
 
 enable_wifi() {
+    wifi_trace_emit "ENABLE_REQUESTED" source=helperFunctions.sh:enable_wifi reason=user_or_system_request
+
+    if [ -e /tmp/wifion ]; then
+        wifi_trace_emit "ENABLE_NOOP" source=helperFunctions.sh:enable_wifi reason=already_enabled
+        # TODO(trace): Revisit NOOP semantics; this currently traces NOOP but continues execution.
+    fi
+
     device_wifi_power_on
 
     rm -f /tmp/wifioff          2>/dev/null
@@ -984,20 +1080,19 @@ enable_wifi() {
         WPA_CMDLINE=$(tr '\0' ' ' < /proc/$WPA_PID/cmdline)
         if ! echo "$WPA_CMDLINE" | grep -q -- "-c $WPA_SUPPLICANT_FILE"; then
             log_message "wpa_supplicant using wrong config; restarting with $WPA_SUPPLICANT_FILE"
+            wifi_trace_emit "WPA_RESTART" source=helperFunctions.sh:enable_wifi reason=config_mismatch_restart config="$WPA_SUPPLICANT_FILE"
             kill -9 "$WPA_PID" 2>/dev/null
             sleep 1
             wpa_supplicant -B -D nl80211 -i wlan0 -c "$WPA_SUPPLICANT_FILE"
-            log_message "wpa_supplicant was running with the wrong conf so restarted"
-        else
-            log_message "wpa_supplicant was running with the correct conf file already"
         fi
     else    # wpa_supplicant was not running at all, so start it
         wpa_supplicant -B -D nl80211 -i wlan0 -c "$WPA_SUPPLICANT_FILE"
-        log_message "Launching wpa_supplicant"
     fi
+    wifi_trace_emit "DHCP_START" source=helperFunctions.sh:enable_wifi interface=wlan0
     pgrep -f "udhcpc.*wlan0" >/dev/null || udhcpc -i wlan0 -b -t 5 -T 3
     /mnt/SDCARD/spruce/scripts/networkservices.sh &
     log_message "WiFi turned on"
+    wifi_trace_emit "ENABLE_COMPLETE" source=helperFunctions.sh:enable_wifi outcome=success
 }
 
 enable_or_disable_wifi_per_system_json() {
@@ -1011,9 +1106,11 @@ enable_or_disable_wifi_per_system_json() {
 restart_wifi() {
     # Requires PLATFORM and WPA_SUPPLICANT_FILE to be set
     log_message "Restarting Wi-Fi interface wlan0"
+    wifi_trace_emit "RESTART_REQUESTED" source=helperFunctions.sh:restart_wifi reason=manual_or_recovery
     disable_wifi
     sleep 1
     enable_wifi
+    wifi_trace_emit "RESTART_COMPLETE" source=helperFunctions.sh:restart_wifi outcome=success
 }
 
 check_and_connect_wifi() {
@@ -1028,13 +1125,16 @@ check_and_connect_wifi() {
         if ping -c 1 -W 3 1.1.1.1 >/dev/null 2>&1; then
             connection_active=1
             log_message "Active WiFi connection verified"
+            wifi_trace_emit "CONNECTION_VERIFIED" source=helperFunctions.sh:check_and_connect_wifi reason=already_connected
         else
             log_message "WiFi interface has IP but no connectivity - attempting reconnect"
+            wifi_trace_emit "CONNECTION_VERIFY_FAILED" source=helperFunctions.sh:check_and_connect_wifi reason=no_ping_response
         fi
     fi
 
     if [ $connection_active -eq 0 ]; then
         log_message "Attempting to connect to WiFi"
+        wifi_trace_emit "CONNECTION_ATTEMPT_BEGIN" source=helperFunctions.sh:check_and_connect_wifi timeout_seconds="$timeout"
         start_pyui_message_writer 1
         restart_wifi
 		
@@ -1045,11 +1145,13 @@ check_and_connect_wifi() {
                 current_time=$(date +%s)
                 if [ $((current_time - start_time)) -ge $timeout ]; then
                     echo "WiFi connection timed out" >> "$MESSAGES_FILE"
+                    wifi_trace_emit "CONNECTION_TIMEOUT" source=helperFunctions.sh:check_and_connect_wifi reason=timeout timeout_seconds="$timeout"
                     break
                 fi
 
                 if ifconfig wlan0 | grep -qE "inet |inet6 " && ping -c 1 -W 3 1.1.1.1 >/dev/null 2>&1; then
                     echo "Successfully connected to WiFi" >> "$MESSAGES_FILE"
+                    wifi_trace_emit "CONNECTION_VERIFIED" source=helperFunctions.sh:check_and_connect_wifi reason=connected_after_retry
                     break
                 fi
                 sleep 0.5
@@ -1061,6 +1163,7 @@ check_and_connect_wifi() {
             case $last_line in
                 *"$B_START"* | *"$B_START_2"*)
                     log_message "WiFi connection cancelled by user"
+                    wifi_trace_emit "CONNECTION_CANCELLED" source=helperFunctions.sh:check_and_connect_wifi reason=cancelled_by_user
                     display_image_and_text "/mnt/SDCARD/spruce/imgs/notfound.png" 35 25 "Proceeding before connected to wifi." 75
                     sleep 2
                     return 1
@@ -1153,4 +1256,3 @@ log_activity_event() {
     printf '{"ts":%s,"event":"%s","app":"%s","pid":%s}\n' \
         "$ts" "$event" "$safe_app" "$pid" >> "$LOG_FILE"
 }
-

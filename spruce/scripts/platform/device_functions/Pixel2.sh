@@ -58,21 +58,10 @@ set_loading_screen() {
     /mnt/SDCARD/spruce/pixel2/bin/awww img /mnt/SDCARD/Themes/loading.png --transition-type none --no-resize
 }
 
-disable_swap() {
-    swap_list=$(swapon -s)
-
-    if [ -n "$swap_list" ]; then
-        swapoff -a
-    fi
-}
-
 device_init() {
     touch /mnt/SDCARD/spruce/pixel2/bin/MainUI
     mount --bind /mnt/SDCARD/spruce/pixel2/bin/python /mnt/SDCARD/spruce/pixel2/bin/MainUI
     sync_volume_level
-
-    disable_swap
-    /mnt/SDCARD/spruce/scripts/enable_zram.sh &
 
     # Loading screen daemon
     /mnt/SDCARD/spruce/pixel2/bin/awww-daemon --no-cache & set_loading_screen
@@ -210,13 +199,8 @@ device_lid_open(){
 }
 
 take_screenshot() {
+    close_ppsspp_menu
     screenshot_path="$1"
-    ppsspp_mode="${2:-true}"   # Optional 2nd arg, defaults to true
-
-    if [ "$ppsspp_mode" = true ]; then
-        close_ppsspp_menu
-    fi
-
     /mnt/SDCARD/spruce/pixel2/bin/grim -o DSI-1 "${screenshot_path}"
 }
 
@@ -364,7 +348,7 @@ close_ppsspp_menu() {
 }
 
 set_default_ra_hotkeys() {
-    RA_FILE="/mnt/SDCARD/RetroArch/platform/retroarch-Pixel2.cfg"
+    RA_FILE="/mnt/SDCARD/RetroArch/platform/retroarch-Flip.cfg"
 
     log_message "Resetting RetroArch hotkeys to Spruce defaults."
 
@@ -375,13 +359,16 @@ set_default_ra_hotkeys() {
         "input_fps_toggle_btn = \"3\"" \
         "input_load_state_btn = \"9\"" \
         "input_menu_toggle = \"escape\"" \
-        "input_menu_toggle_btn = \"2\"" \
+        "input_menu_toggle_btn = \"nul\"" \
         "input_quit_gamepad_combo = \"4\"" \
         "input_save_state_btn = \"10\"" \
         "input_screenshot_btn = \"0\"" \
         "input_shader_toggle_btn = \"11\"" \
         "input_state_slot_decrease_btn = \"13\"" \
-        "input_state_slot_increase_btn = \"14\""
+        "input_state_slot_increase_btn = \"14\"" \
+        "input_toggle_slowmotion_axis = \"+4\"" \
+        "input_toggle_fast_forward_axis = \"+5\""
+
 }
 
 device_system_handles_sdcard_unmount() {

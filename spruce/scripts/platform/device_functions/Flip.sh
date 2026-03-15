@@ -306,13 +306,7 @@ close_ppsspp_menu() {
 }
 
 take_screenshot() {
-    screenshot_path="$1"
-    ppsspp_mode="${2:-true}"   # Optional 2nd arg, defaults to true
-
-    if [ "$ppsspp_mode" = true ]; then
-        close_ppsspp_menu
-    fi
-
+    close_ppsspp_menu
     /mnt/SDCARD/spruce/flip/screenshot.sh "$screenshot_path"
 }
 

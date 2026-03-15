@@ -134,14 +134,8 @@ check_if_fw_needs_update() {
 }
 
 take_screenshot() {
-    screenshot_path="$1"
-    ppsspp_mode="${2:-true}"   # Optional 2nd arg, defaults to true
-
-    if [ "$ppsspp_mode" = true ]; then
-        close_ppsspp_menu
-    fi
-
-    /mnt/SDCARD/spruce/bin64/fbscreenshot "$screenshot_path"
+    close_ppsspp_menu
+    /mnt/SDCARD/spruce/bin64/fbscreenshot "$1"
 }
 
 
@@ -280,4 +274,11 @@ device_system_handles_sdcard_unmount() {
     # return 0 = true
     # return non-zero = false
     return 1 # Brick/SmartPro leaves dirty bit set?
+}
+device_power_trace_capabilities() {
+    echo "sleep_signal=kernel_suspend wake_source=rtc_or_power lid_sensor=none rtc_alarm=available"
+}
+
+device_power_trace_notes() {
+    echo "trimui a133p uses wakealarm and trimui daemons may need restart after resume"
 }
