@@ -7,7 +7,7 @@ FAKE_SD_ROOT="/mnt/SDCARD/spruce/scripts"
 mkdir -p "$FAKE_SD_ROOT"
 cat > "$FAKE_SD_ROOT/helperFunctions.sh" <<'STUB'
 log_message() { :; }
-power_trace_emit() { :; }
+system_emit() { :; }
 vibrate() { :; }
 invoke_save_poweroff_singleflight() { :; }
 STUB

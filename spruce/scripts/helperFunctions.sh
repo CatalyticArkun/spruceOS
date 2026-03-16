@@ -37,22 +37,20 @@ esac
 . /mnt/SDCARD/spruce/scripts/platform/$PLATFORM.cfg
 . /mnt/SDCARD/spruce/scripts/device_functions.sh
 TRACE_SCRIPT="/mnt/SDCARD/spruce/scripts/trace.sh"
-POWER_TRACE_SCRIPT="/mnt/SDCARD/spruce/scripts/power_trace.sh"
 POWER_MODE_SCRIPT="/mnt/SDCARD/spruce/scripts/power_mode.sh"
 
 if [ -f "$TRACE_SCRIPT" ]; then
     . "$TRACE_SCRIPT"
 else
     trace_emit() { return 0; }
-    audio_trace_emit() { return 0; }
-    wifi_trace_emit() { return 0; }
-fi
-
-if [ -f "$POWER_TRACE_SCRIPT" ]; then
-    . "$POWER_TRACE_SCRIPT"
-else
+    system_emit() { return 0; }
     power_trace_emit() { return 0; }
+    audio_trace_emit() { return 0; }
+    network_trace_emit() { return 0; }
+    wifi_trace_emit() { return 0; }
+    brightness_trace_emit() { return 0; }
     power_trace_boot_reconcile_pending() { return 0; }
+    power_trace_shutdown_pending() { return 1; }
 fi
 
 if [ -f "$POWER_MODE_SCRIPT" ]; then
@@ -252,15 +250,8 @@ shutdown_singleflight_clear() {
 }
 
 shutdown_pending_now() {
-    # Canonical lifecycle fence: prefer power_mode state when available.
     if command -v power_mode_is_shutdown_pending >/dev/null 2>&1; then
         power_mode_is_shutdown_pending
-        return $?
-    fi
-
-    # Compatibility fallback for partial-upgrade/helper-unavailable cases.
-    if command -v power_trace_shutdown_pending >/dev/null 2>&1; then
-        power_trace_shutdown_pending
         return $?
     fi
 
@@ -1043,11 +1034,10 @@ extract_7z_with_progress() {
 ##### WIFI HANDLING #####
 
 disable_wifi() {
-    wifi_trace_emit "DISABLE_REQUESTED" source=helperFunctions.sh:disable_wifi reason=user_or_system_request
+    system_emit "networking" "ENABLED" "DISABLED" "helperFunctions.sh:disable_wifi" "wifi disable requested"
 
     if [ -e /tmp/wifioff ]; then
-        wifi_trace_emit "DISABLE_NOOP" source=helperFunctions.sh:disable_wifi reason=already_disabled
-        # TODO(trace): Revisit NOOP semantics; this currently traces NOOP but continues execution.
+        system_emit "networking" "DISABLED" "DISABLED" "helperFunctions.sh:disable_wifi" "wifi disable requested while already disabled"
     fi
 
     ifconfig wlan0 down         2>/dev/null
@@ -1057,15 +1047,14 @@ disable_wifi() {
     killall -9 udhcpc           2>/dev/null
     log_message "WiFi turned off"
     device_wifi_power_off
-    wifi_trace_emit "DISABLE_COMPLETE" source=helperFunctions.sh:disable_wifi outcome=success
+    system_emit "networking" "DISABLED" "DISABLED" "helperFunctions.sh:disable_wifi" "wifi disabled"
 }
 
 enable_wifi() {
-    wifi_trace_emit "ENABLE_REQUESTED" source=helperFunctions.sh:enable_wifi reason=user_or_system_request
+    system_emit "networking" "DISABLED" "ENABLED" "helperFunctions.sh:enable_wifi" "wifi enable requested"
 
     if [ -e /tmp/wifion ]; then
-        wifi_trace_emit "ENABLE_NOOP" source=helperFunctions.sh:enable_wifi reason=already_enabled
-        # TODO(trace): Revisit NOOP semantics; this currently traces NOOP but continues execution.
+        system_emit "networking" "ENABLED" "ENABLED" "helperFunctions.sh:enable_wifi" "wifi enable requested while already enabled"
     fi
 
     device_wifi_power_on
@@ -1080,7 +1069,7 @@ enable_wifi() {
         WPA_CMDLINE=$(tr '\0' ' ' < /proc/$WPA_PID/cmdline)
         if ! echo "$WPA_CMDLINE" | grep -q -- "-c $WPA_SUPPLICANT_FILE"; then
             log_message "wpa_supplicant using wrong config; restarting with $WPA_SUPPLICANT_FILE"
-            wifi_trace_emit "WPA_RESTART" source=helperFunctions.sh:enable_wifi reason=config_mismatch_restart config="$WPA_SUPPLICANT_FILE"
+            system_emit "networking" "ENABLED" "ENABLED" "helperFunctions.sh:enable_wifi" "restarting wpa_supplicant due to config mismatch config=$WPA_SUPPLICANT_FILE"
             kill -9 "$WPA_PID" 2>/dev/null
             sleep 1
             wpa_supplicant -B -D nl80211 -i wlan0 -c "$WPA_SUPPLICANT_FILE"
@@ -1088,11 +1077,11 @@ enable_wifi() {
     else    # wpa_supplicant was not running at all, so start it
         wpa_supplicant -B -D nl80211 -i wlan0 -c "$WPA_SUPPLICANT_FILE"
     fi
-    wifi_trace_emit "DHCP_START" source=helperFunctions.sh:enable_wifi interface=wlan0
+    system_emit "networking" "LINK_UP" "CONNECTED" "helperFunctions.sh:enable_wifi" "starting dhcp on wlan0"
     pgrep -f "udhcpc.*wlan0" >/dev/null || udhcpc -i wlan0 -b -t 5 -T 3
     /mnt/SDCARD/spruce/scripts/networkservices.sh &
     log_message "WiFi turned on"
-    wifi_trace_emit "ENABLE_COMPLETE" source=helperFunctions.sh:enable_wifi outcome=success
+    system_emit "networking" "ENABLED" "ENABLED" "helperFunctions.sh:enable_wifi" "wifi enabled"
 }
 
 enable_or_disable_wifi_per_system_json() {
@@ -1106,11 +1095,11 @@ enable_or_disable_wifi_per_system_json() {
 restart_wifi() {
     # Requires PLATFORM and WPA_SUPPLICANT_FILE to be set
     log_message "Restarting Wi-Fi interface wlan0"
-    wifi_trace_emit "RESTART_REQUESTED" source=helperFunctions.sh:restart_wifi reason=manual_or_recovery
+    system_emit "networking" "ENABLED" "ENABLED" "helperFunctions.sh:restart_wifi" "wifi restart requested"
     disable_wifi
     sleep 1
     enable_wifi
-    wifi_trace_emit "RESTART_COMPLETE" source=helperFunctions.sh:restart_wifi outcome=success
+    system_emit "networking" "ENABLED" "ENABLED" "helperFunctions.sh:restart_wifi" "wifi restart complete"
 }
 
 check_and_connect_wifi() {
@@ -1125,16 +1114,16 @@ check_and_connect_wifi() {
         if ping -c 1 -W 3 1.1.1.1 >/dev/null 2>&1; then
             connection_active=1
             log_message "Active WiFi connection verified"
-            wifi_trace_emit "CONNECTION_VERIFIED" source=helperFunctions.sh:check_and_connect_wifi reason=already_connected
+            system_emit "networking" "CONNECTED" "CONNECTED" "helperFunctions.sh:check_and_connect_wifi" "wifi connection already verified"
         else
             log_message "WiFi interface has IP but no connectivity - attempting reconnect"
-            wifi_trace_emit "CONNECTION_VERIFY_FAILED" source=helperFunctions.sh:check_and_connect_wifi reason=no_ping_response
+            system_emit "networking" "INTERFACE_UP" "CONNECTED" "helperFunctions.sh:check_and_connect_wifi" "wifi interface had ip without connectivity"
         fi
     fi
 
     if [ $connection_active -eq 0 ]; then
         log_message "Attempting to connect to WiFi"
-        wifi_trace_emit "CONNECTION_ATTEMPT_BEGIN" source=helperFunctions.sh:check_and_connect_wifi timeout_seconds="$timeout"
+        system_emit "networking" "ENABLED" "CONNECTED" "helperFunctions.sh:check_and_connect_wifi" "wifi connection attempt started timeout_seconds=$timeout"
         start_pyui_message_writer 1
         restart_wifi
 		
@@ -1145,13 +1134,13 @@ check_and_connect_wifi() {
                 current_time=$(date +%s)
                 if [ $((current_time - start_time)) -ge $timeout ]; then
                     echo "WiFi connection timed out" >> "$MESSAGES_FILE"
-                    wifi_trace_emit "CONNECTION_TIMEOUT" source=helperFunctions.sh:check_and_connect_wifi reason=timeout timeout_seconds="$timeout"
+                    system_emit "networking" "ENABLED" "CONNECTED" "helperFunctions.sh:check_and_connect_wifi" "wifi connection timed out timeout_seconds=$timeout"
                     break
                 fi
 
                 if ifconfig wlan0 | grep -qE "inet |inet6 " && ping -c 1 -W 3 1.1.1.1 >/dev/null 2>&1; then
                     echo "Successfully connected to WiFi" >> "$MESSAGES_FILE"
-                    wifi_trace_emit "CONNECTION_VERIFIED" source=helperFunctions.sh:check_and_connect_wifi reason=connected_after_retry
+                    system_emit "networking" "CONNECTED" "CONNECTED" "helperFunctions.sh:check_and_connect_wifi" "wifi connection verified after retry"
                     break
                 fi
                 sleep 0.5
@@ -1163,7 +1152,7 @@ check_and_connect_wifi() {
             case $last_line in
                 *"$B_START"* | *"$B_START_2"*)
                     log_message "WiFi connection cancelled by user"
-                    wifi_trace_emit "CONNECTION_CANCELLED" source=helperFunctions.sh:check_and_connect_wifi reason=cancelled_by_user
+                    system_emit "networking" "ENABLED" "CONNECTED" "helperFunctions.sh:check_and_connect_wifi" "wifi connection cancelled by user"
                     display_image_and_text "/mnt/SDCARD/spruce/imgs/notfound.png" 35 25 "Proceeding before connected to wifi." 75
                     sleep 2
                     return 1

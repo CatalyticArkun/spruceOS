@@ -9,7 +9,7 @@ trap 'rm -rf "$TMP"; rm -f "$FAKE_SD_ROOT/helperFunctions.sh" /tmp/powerbtn /tmp
 mkdir -p "$FAKE_SD_ROOT"
 cat > "$FAKE_SD_ROOT/helperFunctions.sh" <<'STUB'
 log_message() { :; }
-power_trace_emit() { :; }
+system_emit() { :; }
 vibrate() { :; }
 invoke_save_poweroff_singleflight() { echo "$1" > /tmp/power_button_watchdog_marker_owner_invoked; }
 STUB

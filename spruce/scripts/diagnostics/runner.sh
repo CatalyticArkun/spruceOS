@@ -60,6 +60,10 @@ run_checks() {
     "$SCRIPT_DIR/run_checks.sh" "$RUN_DIR"
 }
 
+run_device_checks() {
+    "$SCRIPT_DIR/run_device_checks.sh" "$RUN_DIR"
+}
+
 run_baseline_checks() {
     "$SCRIPT_DIR/run_baseline_checks.sh" "$RUN_DIR"
 }
@@ -70,14 +74,22 @@ run_verifiers() {
 
 capture_power_traces() {
     mkdir -p "$RUN_DIR/raw" "$RUN_DIR/summary"
-    if [ -f "$LOG_ROOT/power/events.jsonl" ]; then
-        tail -n 400 "$LOG_ROOT/power/events.jsonl" > "$RUN_DIR/raw/power_trace.events.jsonl"
+    capture_subsystem_trace "power"
+    capture_subsystem_trace "networking"
+    capture_subsystem_trace "audio"
+    capture_subsystem_trace "brightness"
+}
+
+capture_subsystem_trace() {
+    subsystem="$1"
+    raw_name="${subsystem}_trace"
+    [ "$subsystem" = "power" ] && raw_name="power_trace"
+
+    if [ -f "$LOG_ROOT/$subsystem/events.jsonl" ]; then
+        tail -n 400 "$LOG_ROOT/$subsystem/events.jsonl" > "$RUN_DIR/raw/${raw_name}.events.jsonl"
     fi
-    if [ -f "$LOG_ROOT/power/summary.txt" ]; then
-        tail -n 200 "$LOG_ROOT/power/summary.txt" > "$RUN_DIR/summary/power_trace.summary.txt"
-    fi
-    if [ -f "$LOG_ROOT/power/state.env" ]; then
-        cp "$LOG_ROOT/power/state.env" "$RUN_DIR/summary/power_trace.state.env"
+    if [ -f "$LOG_ROOT/$subsystem/summary.txt" ]; then
+        tail -n 200 "$LOG_ROOT/$subsystem/summary.txt" > "$RUN_DIR/summary/${raw_name}.summary.txt"
     fi
 }
 
@@ -102,7 +114,7 @@ write_recommendations() {
     out="$RUN_DIR/summary/recommended_flags.txt"
     {
         echo "# Recommendations are hints only; no flags are auto-enabled."
-        if cat "$RUN_DIR/results/check_results.txt" "$RUN_DIR/results/baseline_check_results.txt" "$RUN_DIR/results/verifier_results.txt" 2>/dev/null | grep -Eq 'verdict=(WARN|FAIL)'; then
+        if cat "$RUN_DIR/results/check_results.txt" "$RUN_DIR/results/device_check_results.txt" "$RUN_DIR/results/baseline_check_results.txt" "$RUN_DIR/results/verifier_results.txt" 2>/dev/null | grep -Eq 'verdict=(WARN|FAIL)'; then
             echo "ENABLE_DIAG_PHASE_B.lock"
             echo "RUN_TEST_V-01.lock"
             echo "RUN_TEST_V-02.lock"
@@ -126,12 +138,18 @@ bundle_outputs() {
       summary/report.txt \
       summary/telemetry_event.json \
       results/check_results.txt \
+      results/device_check_results.txt \
       results/verifier_results.txt \
       results/baseline_check_results.txt \
       curated/signature_counts.txt \
       raw/power_trace.events.jsonl \
       summary/power_trace.summary.txt \
-      summary/power_trace.state.env 2>/dev/null || true)
+      raw/networking_trace.events.jsonl \
+      summary/networking_trace.summary.txt \
+      raw/audio_trace.events.jsonl \
+      summary/audio_trace.summary.txt \
+      raw/brightness_trace.events.jsonl \
+      summary/brightness_trace.summary.txt 2>/dev/null || true)
 
     cp "$RUN_DIR/bundles/upload_bundle.tgz" "$LATEST_DIR/bundle_latest.tgz"
     cp "$RUN_DIR/bundles/telemetry_bundle.tgz" "$LATEST_DIR/telemetry_latest.tgz"
@@ -150,18 +168,19 @@ run_step "01_identity" capture_identity
 run_step "02_collectors" run_collectors
 run_step "03_curation" run_curation
 run_step "04_checks" run_checks
-run_step "05_baseline_checks" run_baseline_checks
-run_step "06_verifiers" run_verifiers
-run_step "07_power_trace" capture_power_traces
+run_step "05_device_checks" run_device_checks
+run_step "06_baseline_checks" run_baseline_checks
+run_step "07_verifiers" run_verifiers
+run_step "08_power_trace" capture_power_traces
 
 if [ "$PHASE" = "B" ]; then
-    run_step "08_phase_b" phase_b_exports
+    run_step "09_phase_b" phase_b_exports
 fi
 
-run_step "09_recommend" write_recommendations
-run_step "10_telemetry" write_telemetry
-run_step "11_summary" summarize_outputs
-run_step "12_bundle" bundle_outputs
+run_step "10_recommend" write_recommendations
+run_step "11_telemetry" write_telemetry
+run_step "12_summary" summarize_outputs
+run_step "13_bundle" bundle_outputs
 
 atomic_write "$STATE_FILE" \
 "run_id=$RUN_ID" \

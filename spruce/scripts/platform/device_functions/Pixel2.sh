@@ -120,6 +120,14 @@ get_volume_level() {
 set_volume() {
     VOL_VAL="${1:-0}" # default to mute if no value supplied
     SAVE_TO_CONFIG="${2:-true}" # Optional 2nd arg, defaults to true
+    TRACE_SOURCE="${3:-Pixel2.sh:set_volume}"
+    TRACE_CONTEXT="${4:-set volume to ${VOL_VAL}}"
+
+    current_volume="$(jq -r '.vol // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
+    case "$current_volume" in
+        ''|*[!0-9]*) current_state="UNKNOWN" ;;
+        *) current_state="VOL_${current_volume}" ;;
+    esac
 
     # Set volume
     SYSTEM_VOL=$(map_mainui_volume_to_system_value "$VOL_VAL")
@@ -129,6 +137,8 @@ set_volume() {
         # Update Config file
         save_volume_to_config_file "$VOL_VAL"
     fi
+
+    system_emit "audio" "$current_state" "VOL_${VOL_VAL}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
 }
 
 volume_down() {
@@ -255,10 +265,18 @@ map_mainui_brightness_to_system_value() {
 
 set_backlight() {
     new_bl="$1"
+    TRACE_SOURCE="${2:-Pixel2.sh:set_backlight}"
+    TRACE_CONTEXT="${3:-set brightness to ${new_bl}}"
+    current_backlight_value="$(jq -r '.backlight // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
+    case "$current_backlight_value" in
+        ''|*[!0-9]*) current_state="UNKNOWN" ;;
+        *) current_state="BL_${current_backlight_value}" ;;
+    esac
     sys_bl=$(map_mainui_brightness_to_system_value "$new_bl")
     if (( $new_bl >= 0 )) && (( $new_bl <= 10 )); then
         echo $sys_bl > $DEVICE_BRIGHTNESS_PATH
         jq ".backlight = $new_bl" "$SYSTEM_JSON" > "$SYSTEM_JSON.tmp" && mv "$SYSTEM_JSON.tmp" "$SYSTEM_JSON"
+        system_emit "brightness" "$current_state" "BL_${new_bl}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
     fi
 }
 

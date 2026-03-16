@@ -15,6 +15,7 @@ sftpgo_enabled="$(get_config_value '.menuOptions."Network Settings".enableSFTPGo
 syncthing_enabled="$(get_config_value '.menuOptions."Network Settings".enableSyncthing.selected' "False")"
 
 connect_services() {
+	system_emit "networking" "ENABLED" "CONNECTED" "networkservices.sh:connect_services" "waiting for network connectivity before managing services"
 
 	while true; do
 		if ifconfig wlan0 | grep -qE "inet |inet6 " && ping -c 1 -W 3 1.1.1.1 >/dev/null 2>&1; then
@@ -27,9 +28,11 @@ connect_services() {
 	if [ "$samba_enabled" = "True" ]; then
 		if ! pgrep "smbd" >/dev/null; then
 			log_message "Network services: Samba detected not running, starting..."
+			system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "starting samba service"
 			start_samba_process
 		fi
 	else
+		system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "stopping samba service"
 		stop_samba_process
 	fi
 
@@ -37,9 +40,11 @@ connect_services() {
 	if [ "$ssh_enabled" = "True" ]; then
 		if ! pgrep "$SSH_SERVICE_NAME" >/dev/null; then
 			log_message "Network services: $SSH_SERVICE_NAME detected not running, starting..."
+			system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "starting $SSH_SERVICE_NAME service"
 			start_ssh_process
 		fi
 	else
+		system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "stopping $SSH_SERVICE_NAME service"
 		stop_ssh_process
 	fi
 
@@ -47,9 +52,11 @@ connect_services() {
 	if [ "$sftpgo_enabled" = "True" ]; then
 		if ! pgrep "$SFTP_SERVICE_NAME" >/dev/null; then
 			log_message "Network services: SFTPGo detected not running, starting..."
+			system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "starting $SFTP_SERVICE_NAME service"
 			start_sftpgo_process
 		fi
 	else
+		system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "stopping $SFTP_SERVICE_NAME service"
 		stop_sftpgo_process
 	fi
 
@@ -57,13 +64,16 @@ connect_services() {
 	if [ "$syncthing_enabled" = "True" ]; then
 		if ! pgrep "syncthing" >/dev/null; then
 			log_message "Network services: Syncthing detected not running, starting..."
+			system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "starting syncthing service"
 			start_syncthing_process
 		fi
 	else
+		system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "stopping syncthing service"
 		stop_syncthing_process
 	fi
 
 	# Start Network Services Landing page
+	system_emit "networking" "CONNECTED" "SERVICES_ACTIVE" "networkservices.sh:connect_services" "starting network landing page"
 	start_darkhttpd_process
 
 }
@@ -71,6 +81,7 @@ connect_services() {
 disconnect_services() {
 
 	log_message "Network services: Stopping all network services..."
+	system_emit "networking" "CONNECTED" "SERVICES_INACTIVE" "networkservices.sh:disconnect_services" "stopping all network services"
 	for service in "$SFTP_SERVICE_NAME" "$SSH_SERVICE_NAME" "smbd" "syncthing" "darkhttpd"; do
 		if pgrep "$service" >/dev/null; then
 			case "$service" in

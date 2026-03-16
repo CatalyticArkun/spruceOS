@@ -12,7 +12,7 @@ TEST_TMP="/tmp/sleep_helper_lifecycle_gate_test"
 mkdir -p "$TEST_TMP"
 
 log_message() { :; }
-power_trace_emit() { :; }
+system_emit() { :; }
 get_current_app() { echo "test-app"; }
 log_activity_event() { echo "$*" >> "$TEST_TMP/log_activity_event"; }
 power_mode_may_accept_sleep_requests() { return 1; }

@@ -76,6 +76,13 @@ enable_or_disable_rgb() {
 set_volume() {
     new_vol="${1:-0}" # default to mute if no value supplied
     SAVE_TO_CONFIG="${2:-true}"   # Optional 2nd arg, defaults to true
+    TRACE_SOURCE="${3:-SmartProS.sh:set_volume}"
+    TRACE_CONTEXT="${4:-set volume to ${new_vol}}"
+    current_volume="$(jq -r '.vol // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
+    case "$current_volume" in
+        ''|*[!0-9]*) current_state="UNKNOWN" ;;
+        *) current_state="VOL_${current_volume}" ;;
+    esac
 
     mkdir -p /tmp/system 2>/dev/null
     echo "$new_vol" > /tmp/system/set_volume 2>/dev/null
@@ -91,6 +98,8 @@ set_volume() {
             fi
         fi
     fi
+
+    system_emit "audio" "$current_state" "VOL_${new_vol}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
 
 }
 
@@ -479,6 +488,13 @@ device_run_thermal_process(){
 
 set_backlight() {
     val="$1"
+    TRACE_SOURCE="${2:-SmartProS.sh:set_backlight}"
+    TRACE_CONTEXT="${3:-set brightness to ${val}}"
+    current_backlight_value="$(jq -r '.backlight // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
+    case "$current_backlight_value" in
+        ''|*[!0-9]*) current_state="UNKNOWN" ;;
+        *) current_state="BL_${current_backlight_value}" ;;
+    esac
 
     # Clamp input to 1–10
     [ "$val" -lt 1 ] && val=1
@@ -493,6 +509,7 @@ set_backlight() {
     # update device system json
     tmp=$(mktemp)
     jq ".backlight = $val" "$SYSTEM_JSON" > "$tmp" && mv "$tmp" "$SYSTEM_JSON"
+    system_emit "brightness" "$current_state" "BL_${val}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
 }
 
 

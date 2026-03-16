@@ -43,6 +43,7 @@ json_result_lines() {
 
 : > "$FINDINGS"
 json_result_lines "check" "$RUN_DIR/results/check_results.txt" "results/check_results.txt" >> "$FINDINGS"
+json_result_lines "device_check" "$RUN_DIR/results/device_check_results.txt" "results/device_check_results.txt" >> "$FINDINGS"
 json_result_lines "baseline_check" "$RUN_DIR/results/baseline_check_results.txt" "results/baseline_check_results.txt" >> "$FINDINGS"
 json_result_lines "verifier" "$RUN_DIR/results/verifier_results.txt" "results/verifier_results.txt" >> "$FINDINGS"
 
@@ -143,6 +144,7 @@ cat > "$MANIFEST" <<JSON
     "info": $info_count,
     "ok": $ok_count,
     "check": $(grep -c '"type":"check"' "$FINDINGS" 2>/dev/null || echo 0),
+    "device_check": $(grep -c '"type":"device_check"' "$FINDINGS" 2>/dev/null || echo 0),
     "verifier": $(grep -c '"type":"verifier"' "$FINDINGS" 2>/dev/null || echo 0)
   },
   "artifacts": $ARTIFACTS_JSON

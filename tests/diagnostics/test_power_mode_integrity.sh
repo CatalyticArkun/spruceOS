@@ -84,7 +84,7 @@ pattern='(^|[^[:alnum:]_])(>|>>|cat[[:space:]]*>)[[:space:]]*/tmp/power_mode\.st
 if command -v rg >/dev/null 2>&1; then
     scan_output="$(rg -n "$pattern" spruce/scripts || true)"
 else
-    echo "warning: rg unavailable; using grep fallback for power_mode direct-write scan"
+    echo "warning: rg unavailable; using grep fallback for power_mode direct-write scan" >&2
     scan_output="$(grep -nE "$pattern" spruce/scripts/*.sh 2>/dev/null || true)"
 fi
 

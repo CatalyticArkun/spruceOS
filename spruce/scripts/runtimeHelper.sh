@@ -370,12 +370,11 @@ set_volume_to_config() {
 }
 
 auto_resume_should_emit_wake_trace() {
-    if ! command -v power_trace_load_state >/dev/null 2>&1; then
+    if ! command -v power_mode_get >/dev/null 2>&1; then
         return 1
     fi
 
-    power_trace_load_state
-    [ "${pt_last_state:-}" = "WAKING" ] || [ "${pt_requested_state:-}" = "WAKE" ]
+    [ "$(power_mode_get)" = "waking" ]
 }
 
 auto_resume_game() {
@@ -389,11 +388,14 @@ auto_resume_game() {
     fi
 
     if auto_resume_should_emit_wake_trace; then
-        power_trace_emit "WAKE_RESUME_BEGIN" "AUTO" "RUNNING" "WAKING" "autoresume" "runtimeHelper.sh:auto_resume_game" "save_active flag triggered autoresume during waking state" "" "" "" "save_active=true" "" ""
+        system_emit "power" "WAKING" "RUNNING" "runtimeHelper.sh:auto_resume_game" "save_active flag triggered autoresume during waking state"
     fi
 
     if shutdown_pending_now; then
         log_message "runtimeHelper.sh:auto_resume_game: suppressing autoresume dispatch because shutdown is pending"
+        if command -v system_emit >/dev/null 2>&1; then
+            system_emit "power" "RUNNING" "RUNNING" "runtimeHelper.sh:auto_resume_game" "autoresume dispatch suppressed because shutdown is pending save_active=true" || true
+        fi
         return 0
     fi
 
@@ -415,7 +417,7 @@ auto_resume_game() {
     rm -f /tmp/cmd_to_run.sh # remove tmp command file after game exit; otherwise the game will load again in principal.sh later
     log_message "Auto Resume executed"
     if auto_resume_should_emit_wake_trace; then
-        power_trace_emit "WAKE_RESUME_COMPLETE" "AUTO" "RUNNING" "RUNNING" "autoresume_complete" "runtimeHelper.sh:auto_resume_game" "autoresume command finished during waking state" "" "" "" "save_active=true" "" ""
+        system_emit "power" "RUNNING" "RUNNING" "runtimeHelper.sh:auto_resume_game" "autoresume command finished during waking state save_active=true"
     fi
 }
 
@@ -424,6 +426,9 @@ set_up_boot_action() {
 
     if shutdown_pending_now; then
         log_message "runtimeHelper.sh:set_up_boot_action: skipping boot-action dispatch because shutdown is pending"
+        if command -v system_emit >/dev/null 2>&1; then
+            system_emit "power" "RUNNING" "RUNNING" "runtimeHelper.sh:set_up_boot_action" "boot-action dispatch suppressed because shutdown is pending" || true
+        fi
         return 0
     fi
 

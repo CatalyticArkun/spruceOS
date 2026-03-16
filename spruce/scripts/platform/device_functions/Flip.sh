@@ -110,10 +110,17 @@ get_volume_level() {
 set_volume() {
     VOLUME_LV="$1"
     SAVE_TO_CONFIG="${2:-true}"   # Optional 2nd arg, defaults to true
+    TRACE_SOURCE="${3:-Flip.sh:set_volume}"
+    TRACE_CONTEXT="${4:-set volume to ${VOLUME_LV}}"
     VOLUME_RAW=$(( VOLUME_LV * 5 ))
     HP_VOLUME_MAX=15  # Headphone amp gain cap (0-63). Stock is 58 which is way too loud.
     HP_VOLUME=$(( VOLUME_RAW * HP_VOLUME_MAX / 100 ))
     log_message "Setting volume to ${VOLUME_RAW}"
+    current_volume="$(jq -r '.vol // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
+    case "$current_volume" in
+        ''|*[!0-9]*) current_state="UNKNOWN" ;;
+        *) current_state="VOL_${current_volume}" ;;
+    esac
 
 
     if [ "$VOLUME_RAW" -eq 0 ]; then
@@ -141,6 +148,8 @@ set_volume() {
     if [ "$SAVE_TO_CONFIG" = true ]; then
         save_volume_to_config_file "$VOLUME_LV"
     fi
+
+    system_emit "audio" "$current_state" "VOL_${VOLUME_LV}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
 }
 
 fix_sleep_sound_bug() {

@@ -1,5 +1,7 @@
 # Power-State Debug Integration Merge Notes
 
+Historical note: this document describes the original stateful power-trace merge. The current bridge has since simplified tracing into the passive `system-emit` overlay, removed boot-reconcile/state-file control coupling, and folded the internal recorder into `spruce/scripts/trace.sh`.
+
 ## 1) Branch comparison summary
 
 Base branch: `origin/dev-arkun`
@@ -23,7 +25,7 @@ Integration branch: `merge/power-state-debug-integration`
 | `spruce/scripts/diagnostics/runner.sh` | broader diagnostics phase flow | adds power-trace capture step | Behavioral + observability |
 | `spruce/scripts/diagnostics/write_telemetry.sh` | robust result aggregation | adds power trace fields | Observability |
 | `spruce/scripts/runtime.sh` | diagnostics startup behavior | `BOOT_BEGIN`/`BOOT_COMPLETE` + reconcile | Behavioral + observability |
-| `spruce/scripts/helperFunctions.sh` | baseline global helpers | global `power_trace.sh` import | Infrastructure |
+| `spruce/scripts/helperFunctions.sh` | baseline global helpers | global trace framework import | Infrastructure |
 | `spruce/scripts/sleep_helper.sh` | existing sleep/wake flow | detailed sleep/wake transition emits + failure handling | High-risk behavioral |
 | `spruce/scripts/save_poweroff.sh` | existing staged shutdown | transition emits + duplicate/exception observability | High-risk behavioral |
 | `spruce/scripts/power_button_watchdog_v2.sh` | short/long press behavior | trace emits for short sleep/long shutdown | High-risk behavioral |
@@ -33,7 +35,7 @@ Integration branch: `merge/power-state-debug-integration`
 
 ### Safe merge
 - Docs additions: `docs/power_trace_architecture.md`, `docs/power_trace_usage.md`.
-- New tracing implementation: `spruce/scripts/power_trace.sh`.
+- Historical tracing implementation: separate `spruce/scripts/power_trace.sh`; current bridge internalizes this in `spruce/scripts/trace.sh`.
 - Most target capability hook additions in platform files.
 
 ### Textual conflicts (actual)
@@ -78,11 +80,12 @@ This order was applied.
 - Rationale: preserves robust parsing/escaping and broader results set.
 
 ### `spruce/scripts/runtime.sh`
-- Decision: retain startup behavior from base and include `power_trace_boot_reconcile_pending`, `BOOT_BEGIN`, `BOOT_COMPLETE` events.
+- Original decision: retain startup behavior from base and include `power_trace_boot_reconcile_pending`, `BOOT_BEGIN`, `BOOT_COMPLETE` events.
+- Current bridge status: `BOOT_BEGIN`/`BOOT_COMPLETE` remain, but boot reconciliation was removed when tracing became passive.
 
 ### `spruce/scripts/helperFunctions.sh`
-- Decision: keep global `power_trace.sh` import.
-- Safety note: import is side-effect-light and function-defining; file now exists in tree and is expected by multiple call sites.
+- Historical decision: keep global `power_trace.sh` import.
+- Current bridge status: only `trace.sh` is required at runtime; `power_trace.sh` is a compatibility shim for older manual sourcing paths.
 
 ### `spruce/scripts/sleep_helper.sh`
 - Decision: keep power-state branch behavioral base.
@@ -112,7 +115,7 @@ This order was applied.
 - Audit for redundant emits in both watchdog and sleep helper to avoid double-counting in edge timing races.
 - Normalize naming of result files (`baseline_check_results` vs legacy device-check naming) across tests/docs.
 - Consider centralizing bundle include lists to avoid drift between upload/telemetry bundles.
-- Follow-up (non-blocking): `run_device_checks.sh` and `device_check_results.txt` are partially integrated scaffolding. They are functional but not wired into `runner.sh` or telemetry ingestion; summary wildcard logic may still observe them if run manually. Recommended follow-up is to either fully integrate device checks into runner/telemetry/summary contracts, or remove/deprecate the path to avoid taxonomy drift.
+- Resolved follow-up: `run_device_checks.sh` and `device_check_results.txt` are now wired into `runner.sh`, telemetry ingestion, summaries, and bundle exports.
 
 ## 9) Validation checklist
 
@@ -136,6 +139,7 @@ This order was applied.
 
 ## 10) Assumptions and unresolved risks
 
-- Assumes global `power_trace.sh` sourcing remains safe in all startup contexts.
+- Historical merge assumption: a separate `power_trace.sh` source remained safe in all startup contexts.
+- Current bridge status: only `trace.sh` is sourced at runtime, and tracing remains passive and no longer owns lifecycle state.
 - Device-specific sleep implementations may still differ in timer-wake semantics and require on-hardware confirmation.
 - Transition order is best-effort around asynchronous shutdown paths; some traces can be missing on abrupt power loss.

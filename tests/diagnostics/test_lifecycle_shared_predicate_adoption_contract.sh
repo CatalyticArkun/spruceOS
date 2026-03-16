@@ -10,7 +10,7 @@ scan_file() {
     if command -v rg >/dev/null 2>&1; then
         rg -n "$pattern" "$file" || true
     else
-        echo "warning: rg unavailable; using grep fallback for lifecycle shared predicate scan"
+        echo "warning: rg unavailable; using grep fallback for lifecycle shared predicate scan" >&2
         grep -nE "$pattern" "$file" || true
     fi
 }
@@ -39,7 +39,7 @@ do
         exit 1
     }
 
-    inline_refs="$(scan_file "$f" 'power_mode_is_shutdown_pending|power_trace_shutdown_pending|power_mode_may_accept_sleep_requests')"
+    inline_refs="$(scan_file "$f" 'power_mode_is_shutdown_pending|power_mode_may_accept_sleep_requests')"
     [ -z "$inline_refs" ] || {
         echo "did not expect inline lifecycle predicate checks in $f after shared helper extraction"
         echo "$inline_refs"

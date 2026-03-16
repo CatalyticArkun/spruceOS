@@ -31,11 +31,13 @@ elif shutdown_singleflight_begin "save_poweroff.sh:entry"; then
     shutdown_guard_claimed="true"
 else
     log_message "save_poweroff.sh: shutdown already in progress. Ignoring duplicate call before startup sequence."
-    power_trace_emit "INVALID_TRANSITION" "AUTO" "OFF" "RUNNING" "duplicate_shutdown_call" "save_poweroff.sh:singleflight_guard" "duplicate save_poweroff invocation ignored by shutdown guard" "" "" "" "" "" ""
+    system_emit "power" "RUNNING" "OFF" "save_poweroff.sh:singleflight_guard" "duplicate save_poweroff invocation ignored by shutdown guard"
     exit 0
 fi
 
 shutdown_handoff_started="false"
+power_shutdown_begin_emitted="false"
+power_shutdown_handoff_emitted="false"
 
 release_singleflight_if_prehandoff_exit() {
     reason="${1:-unknown}"
@@ -43,29 +45,35 @@ release_singleflight_if_prehandoff_exit() {
     if [ "$shutdown_guard_claimed" = "true" ] && [ "$shutdown_handoff_started" != "true" ]; then
         shutdown_singleflight_clear
         log_message "save_poweroff.sh: released shutdown singleflight guard before irreversible handoff (reason=${reason})"
-        power_trace_emit "TRANSITION_ABORTED" "AUTO" "OFF" "RUNNING" "shutdown_prehandoff_exit" "save_poweroff.sh:singleflight_release" "singleflight guard released before irreversible handoff reason=${reason}" "" "" "" "" "" ""
+        system_emit "power" "RUNNING" "RUNNING" "save_poweroff.sh:singleflight_release" "singleflight guard released before irreversible handoff reason=${reason}"
     fi
-}
-
-power_trace_shutdown_already_pending() {
-    if ! command -v power_trace_load_state >/dev/null 2>&1; then
-        return 1
-    fi
-
-    power_trace_load_state
-    [ "${pt_last_state:-}" = "SHUTDOWN_PENDING" ] && [ "${pt_requested_state:-}" = "SHUTDOWN" ]
 }
 
 power_trace_emit_shutdown_begin_once() {
-    if power_trace_shutdown_already_pending; then
-        power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "save_poweroff_entry" "save_poweroff.sh:startup" "shutdown already pending before save_poweroff entry" "" "normal" "autosave_expected" "" "" ""
+    [ "$power_shutdown_begin_emitted" = "true" ] && return 0
+
+    if shutdown_pending_now; then
+        system_emit "power" "SHUTDOWN_PENDING" "OFF" "save_poweroff.sh:startup" "shutdown already pending before save_poweroff entry"
     else
-        power_trace_emit "SHUTDOWN_BEGIN" "AUTO" "OFF" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "shutdown path requested" "" "normal" "autosave_expected" "" "" ""
+        system_emit "power" "RUNNING" "OFF" "save_poweroff.sh:startup" "shutdown path requested"
     fi
+
+    power_shutdown_begin_emitted="true"
+}
+
+power_trace_emit_shutdown_handoff_once() {
+    trigger="$1"
+    source_ref="$2"
+    notes="$3"
+
+    [ "$power_shutdown_handoff_emitted" = "true" ] && return 0
+
+    system_emit "power" "SHUTDOWN_PENDING" "OFF" "$source_ref" "${notes} trigger=${trigger}"
+    power_shutdown_handoff_emitted="true"
 }
 
 if [ "$s2_arg" = "--reboot" ]; then
-    power_trace_emit "REBOOT_BEGIN" "AUTO" "BOOTING" "RUNNING" "user_or_system_request" "save_poweroff.sh:startup" "reboot path requested" "" "reboot" "" "" "" ""
+    system_emit "power" "RUNNING" "BOOTING" "save_poweroff.sh:startup" "reboot path requested"
 else
     power_trace_emit_shutdown_begin_once
 fi
@@ -344,6 +352,9 @@ exec_shutdown_stage_2() {
     log_message "Running stage 2 of save_poweroff from /tmp."
     sync
     if [ -e "$STAGE_2_SD_PATH" ]; then
+        if [ "$s2_arg" != "--reboot" ]; then
+            power_trace_emit_shutdown_handoff_once "stage2_exec_path" "save_poweroff.sh:exec_shutdown_stage_2" "copied stage2 shutdown script to tmp and handing off to final shutdown path"
+        fi
         shutdown_handoff_started="true"
         cp $STAGE_2_SD_PATH $STAGE_2_TMP_PATH
         chmod +x $STAGE_2_TMP_PATH
@@ -354,7 +365,10 @@ exec_shutdown_stage_2() {
         exec "$STAGE_2_TMP_PATH" "$s2_arg"
     else
         log_message "ERROR: Stage 2 script missing! Executing run_poweroff_cmd() instead."
-        power_trace_emit "POWER_ERROR" "AUTO" "OFF" "RUNNING" "stage2_missing" "save_poweroff.sh:exec_shutdown_stage_2" "stage2 shutdown script missing" "" "" "" "" "stage2_script_missing" ""
+        system_emit "power" "RUNNING" "OFF" "save_poweroff.sh:exec_shutdown_stage_2" "stage2 shutdown script missing error=stage2_script_missing"
+        if [ "$s2_arg" != "--reboot" ]; then
+            power_trace_emit_shutdown_handoff_once "stage2_missing_fallback" "save_poweroff.sh:exec_shutdown_stage_2" "stage2 missing; handing off directly to platform poweroff command"
+        fi
         shutdown_handoff_started="true"
         run_poweroff_cmd
     fi
@@ -411,7 +425,7 @@ if device_system_handles_sdcard_unmount; then
         shutdown_handoff_started="true"
         device_run_reboot_cmd
     else
-        power_trace_emit "SHUTDOWN_HANDOFF" "AUTO" "OFF" "OFF" "systemd_path" "save_poweroff.sh:systemd" "platform manages shutdown sequence directly" "" "normal" "" "" "" ""
+        power_trace_emit_shutdown_handoff_once "systemd_path" "save_poweroff.sh:systemd" "platform manages shutdown sequence directly"
         shutdown_handoff_started="true"
         run_poweroff_cmd
     fi

@@ -9,7 +9,7 @@ trap 'rm -rf "$TMP"; rm -f "$FAKE_SD_ROOT/helperFunctions.sh" "$FAKE_SD_ROOT/sle
 mkdir -p "$FAKE_SD_ROOT"
 cat > "$FAKE_SD_ROOT/helperFunctions.sh" <<'STUB'
 log_message() { :; }
-power_trace_emit() { :; }
+system_emit() { :; }
 vibrate() { :; }
 invoke_save_poweroff_singleflight() { echo "$1" >> /tmp/power_event_state_save_calls; }
 sleep_requests_allowed_now() { return 0; }

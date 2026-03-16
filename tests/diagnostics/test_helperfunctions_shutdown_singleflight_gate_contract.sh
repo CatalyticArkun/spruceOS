@@ -9,7 +9,7 @@ scan() {
     if command -v rg >/dev/null 2>&1; then
         rg -n "$pattern" "$TARGET" || true
     else
-        echo "warning: rg unavailable; using grep fallback for helperFunctions shutdown-gate scan"
+        echo "warning: rg unavailable; using grep fallback for helperFunctions shutdown-gate scan" >&2
         grep -nE "$pattern" "$TARGET" || true
     fi
 }
@@ -52,17 +52,11 @@ printf '%s\n' "$shutdown_pending_body" | grep -q 'power_mode_is_shutdown_pending
     echo "expected shutdown_pending_now to check canonical power_mode predicate"
     exit 1
 }
-printf '%s\n' "$shutdown_pending_body" | grep -q 'power_trace_shutdown_pending' || {
-    echo "expected shutdown_pending_now to retain legacy power_trace fallback"
-    exit 1
-}
 
-mode_line=$(printf '%s\n' "$shutdown_pending_body" | grep -n 'power_mode_is_shutdown_pending' | head -n1 | cut -d: -f1)
-trace_line=$(printf '%s\n' "$shutdown_pending_body" | grep -n 'power_trace_shutdown_pending' | head -n1 | cut -d: -f1)
-[ -n "$mode_line" ] && [ -n "$trace_line" ] && [ "$mode_line" -lt "$trace_line" ] || {
-    echo "expected shutdown_pending_now to prefer canonical power_mode check before legacy fallback"
+if printf '%s\n' "$shutdown_pending_body" | grep -q 'power_trace_shutdown_pending'; then
+    echo "did not expect shutdown_pending_now to depend on power_trace fallback"
     exit 1
-}
+fi
 
 sleep_gate_body="$(awk '
     /sleep_requests_allowed_now\(\)/ { in_fn=1 }

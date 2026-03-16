@@ -58,6 +58,14 @@ while [ 1 ]; do
     # When you select a game or app, MainUI writes that command to a temp file and closes itself.
     # This section handles what becomes of that temp file.
     if [ -f /tmp/cmd_to_run.sh ]; then
+        if shutdown_pending_now; then
+            log_message "principal.sh: suppressing command dispatch because shutdown is pending"
+            if command -v system_emit >/dev/null 2>&1; then
+                system_emit "power" "RUNNING" "RUNNING" "principal.sh:dispatch" "command launch suppressed because shutdown is pending" || true
+            fi
+            rm -f /tmp/cmd_to_run.sh
+            continue
+        fi
         sync
         cmd="$(sed 's/[[:space:]]*$//' /tmp/cmd_to_run.sh)"
         log_activity_event "$cmd" "START"

@@ -20,22 +20,19 @@ log_file="/mnt/SDCARD/Saves/spruce/spruce.log" # Resetting log file location
 log_message "---------Starting up---------"
 
 if shutdown_pending_now; then
-    log_message "runtime.sh: startup detected shutdown pending fence before boot reconcile"
+    log_message "runtime.sh: startup detected shutdown pending fence before boot emit"
 fi
 
-if command -v power_trace_boot_reconcile_pending >/dev/null 2>&1; then
-    power_trace_boot_reconcile_pending || true
-fi
-if command -v power_trace_emit >/dev/null 2>&1; then
-    power_trace_emit "BOOT_BEGIN" "AUTO" "BOOTING" "BOOTING" "runtime_start" "runtime.sh:startup" "runtime startup sequence entered" "" "" "" "$(flag_check save_active && echo true || echo false)" "" "" || true
+if command -v system_emit >/dev/null 2>&1; then
+    system_emit "power" "BOOTING" "RUNNING" "runtime.sh:startup" "runtime startup sequence entered save_active=$(flag_check save_active && echo true || echo false)" || true
 fi
 
 boot_complete_emitted=0
 emit_boot_complete_once() {
     [ "$boot_complete_emitted" = "1" ] && return 0
 
-    if command -v power_trace_emit >/dev/null 2>&1; then
-        power_trace_emit "BOOT_COMPLETE" "AUTO" "RUNNING" "RUNNING" "$1" "runtime.sh:startup" "$2" "" "" "" "" "" "" || true
+    if command -v system_emit >/dev/null 2>&1; then
+        system_emit "power" "RUNNING" "RUNNING" "runtime.sh:startup" "$2 trigger=$1" || true
     fi
 
     boot_complete_emitted=1

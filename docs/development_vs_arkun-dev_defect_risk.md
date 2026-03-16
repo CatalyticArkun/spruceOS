@@ -1,12 +1,14 @@
 # Development vs arkun-dev defect-risk analysis
 
+Historical note: this analysis describes the earlier separate `power_trace.sh` model. The current bridge no longer uses trace-owned lifecycle state; `power_mode.sh` owns gating and tracing is a passive `system-emit` overlay implemented from `trace.sh`.
+
 ## Diff scope overview
 Compared `origin/Development..origin/arkun-dev` with emphasis on power/sleep/startup/autoresume/device scripts.
 
 High-impact touched areas:
 - Core lifecycle scripts: `runtime.sh`, `runtimeHelper.sh`, `principal.sh`, `sleep_helper.sh`, `power_button_watchdog_v2.sh`, `save_poweroff.sh`, `archiveUnpacker.sh`.
 - Device behavior: `platform/device_functions/MiyooMini.sh`, `A30.sh`, `SmartProS.sh`, `trimui_a133p.sh`, and `platform/device.sh` defaults.
-- New shared framework: `power_trace.sh` integrated through `helperFunctions.sh`.
+- Historical shared framework: separate `power_trace.sh` integrated through `helperFunctions.sh`; current bridge only requires `trace.sh`.
 - New diagnostics framework and tests (`spruce/scripts/diagnostics/*`, `tests/diagnostics/*`).
 
 Interpretation: this is not a cosmetic branch; it changes the power-state model and startup sequencing contracts across multiple devices.
@@ -46,7 +48,7 @@ Interpretation: this is not a cosmetic branch; it changes the power-state model 
 ### B01 Sleep-on-boot and boot-state ambiguity (reduced, indirectly)
 **Why likely fixed:**
 - `runtime.sh` adds startup state snapshot logging for `save_active` and `lastgame.lock` and boot milestones.
-- `power_trace.sh` introduces boot reconciliation for unfinished transitions and canonical `shutdown pending` predicate used by callers.
+- Historical branch note: the older design also introduced trace-side boot reconciliation and shutdown predicates, but those are no longer part of the bridge.
 
 **Risk delta:** improved guardrails and observability around startup power transitions; helps prevent or at least identify false sleep/shutdown carryover at boot.
 
@@ -66,13 +68,9 @@ Interpretation: this is not a cosmetic branch; it changes the power-state model 
 
 ## Likely defects introduced or more likely in arkun-dev vs Development
 
-### New cross-script coupling risk: power flow now depends on power_trace availability/consistency
-- Many critical decisions now hinge on `power_trace_shutdown_pending` and state files.
-- `helperFunctions.sh` does provide no-op fallbacks when script missing, but mixed deployments (partial updates) can still create semantic drift:
-  - devices with old scripts + new callers,
-  - stale/corrupted `state.env` or `pending.env` influencing suppression behavior.
-
-**Net new risk:** medium; branch adds robustness when coherent, but increases state-machine complexity and file-based coupling.
+### Historical cross-script coupling risk: stateful power_trace availability/consistency
+- In the earlier branch design, critical decisions hinged on `power_trace_shutdown_pending` and state files.
+- That specific risk is removed in the bridge because lifecycle gates now rely on `power_mode.sh`, not trace-owned files.
 
 ### Potential over-suppression risk around watchdog rearm windows (pseudo-sleep devices)
 - `sleep_helper.sh` enforces a 3-second rearm boundary after wake.
@@ -80,11 +78,9 @@ Interpretation: this is not a cosmetic branch; it changes the power-state model 
 
 **Failure mode:** legitimate rapid post-wake power press may be ignored, perceived as missed input or delayed shutdown/sleep response.
 
-### Boot reconciliation may misclassify edge cases after hard resets
-- `power_trace_boot_reconcile_pending()` infers recovered transitions from pending markers.
-- If pending markers persist unexpectedly (filesystem timing/dirty writes), startup can emit recovered events and alter state assumptions.
-
-**Failure mode:** diagnostic/state model may say “recovered shutdown/reboot/wake” when user experienced different path, potentially affecting suppression predicates.
+### Historical boot-reconciliation misclassification risk
+- Earlier branch revisions inferred recovered transitions from pending markers.
+- That specific failure mode is removed in the bridge because boot reconciliation was deleted with the passive overlay change.
 
 ### Shutdown-path behavioral divergence due to new emulator gating
 - `save_poweroff.sh` now only runs graceful/forceful emulator shutdown sequence if `any_emu_is_running` detects tracked process names.
@@ -104,7 +100,7 @@ Interpretation: this is not a cosmetic branch; it changes the power-state model 
 
 ### 2) Likely-defect focus (not raw diff)
 Primary likely fixed/reduced: B02, B04, B06, B07; probable partial improvement B01/B03/B05.
-Primary introduced/increased: power_trace coupling complexity, rearm suppression edge cases, process-name detection gaps.
+Primary introduced/increased in the historical branch: power-trace coupling complexity, rearm suppression edge cases, process-name detection gaps.
 
 ### 3) Priority area summary
 - **Power/sleep/wake/shutdown:** materially reworked, likely net positive with complexity tradeoff.
@@ -114,7 +110,7 @@ Primary introduced/increased: power_trace coupling complexity, rearm suppression
 - **Device-specific (MiyooMini/A30):** Mini pseudo-sleep path likely safer; A30 shutdown freeze likely reduced but not eliminated.
 
 ### 4) Enhancement themes
-- **E01 Unified power state:** largely implemented via `power_trace.sh` + shared predicate use.
+- **E01 Unified power state:** now effectively split into `power_mode.sh` for control state and passive trace exports for observation.
 - **E02 Startup archive/resume validation:** improved via context logging and foreground preCmd when `save_active=true`.
 - **E03 Unified input ownership marker:** implemented with `/tmp/power_watchdog_suspended` + rearm contract.
 - **E04 Boot milestone timing profiler:** partial implementation via milestone logs and trace events.

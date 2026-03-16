@@ -25,8 +25,8 @@ mv "$TMP_MARKER" "$MARKER"
 
 if [ ! -f /tmp/run_starttime_diagnostics_boot_init ]; then
     log_message "power_trace: diagnostics started mid-runtime — marking DIRTY_STARTUP session"
-    if command -v power_trace_emit >/dev/null 2>&1; then
-        power_trace_emit "DIRTY_STARTUP" "UNKNOWN" "RUNNING" "RUNNING" "runtime_diagnostics_started_mid_session" "diagnostics/request_post_menu_run.sh" "diagnostics enabled without clean boot boundary" "" "" "" "" "" "" || true
+    if command -v system_emit >/dev/null 2>&1; then
+        system_emit "power" "RUNNING" "RUNNING" "diagnostics/request_post_menu_run.sh" "diagnostics enabled without clean boot boundary" || true
     fi
 fi
 

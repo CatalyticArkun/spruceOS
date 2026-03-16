@@ -10,7 +10,7 @@ scan_for_pidfile_contract() {
         return
     fi
 
-    echo "warning: rg unavailable; using grep fallback for save_poweroff contract scan"
+    echo "warning: rg unavailable; using grep fallback for save_poweroff contract scan" >&2
     grep -nE '/tmp/save_poweroff\.pid|PIDFILE=' "$TARGET" || true
 }
 

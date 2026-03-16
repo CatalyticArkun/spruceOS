@@ -1,0 +1,4 @@
+#!/bin/sh
+
+. /mnt/SDCARD/spruce/scripts/trace.sh
+system_emit "$@"

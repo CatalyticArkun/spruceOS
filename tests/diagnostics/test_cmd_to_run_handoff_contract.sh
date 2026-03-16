@@ -33,7 +33,7 @@ producers_copy_move="$(scan_files_for_pattern '\$MOVE_OR_COPY[[:space:]].*/tmp/c
 assert_file_set_eq "cmd_to_run copy/move producers" "$producers_copy_move" 'runtimeHelper.sh'
 
 # Consumers/dispatchers: principal launches UI-selected commands, runtimeHelper launches autoresume.
-executors="$(scan_files_for_pattern '/tmp/cmd_to_run\.sh[[:space:]]*&>[[:space:]]*/dev/null')"
+executors="$(scan_files_for_pattern '/tmp/cmd_to_run\.sh[[:space:]]*(&>[[:space:]]*/dev/null|>[[:space:]]*/dev/null[[:space:]]+2>&1)')"
 assert_file_set_eq "cmd_to_run executors" "$executors" 'principal.sh
 runtimeHelper.sh'
 

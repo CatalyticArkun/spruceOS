@@ -32,7 +32,7 @@ SIG_JSON=$(awk -F'|' 'BEGIN{printf "["} {if (NR>1) printf ","; printf "{\"key\":
 
 RES_JSON='['
 sep=''
-for file in "$RUN_DIR/results/check_results.txt" "$RUN_DIR/results/baseline_check_results.txt" "$RUN_DIR/results/verifier_results.txt"; do
+for file in "$RUN_DIR/results/check_results.txt" "$RUN_DIR/results/device_check_results.txt" "$RUN_DIR/results/baseline_check_results.txt" "$RUN_DIR/results/verifier_results.txt"; do
   [ -f "$file" ] || continue
   while IFS= read -r line; do
     case "$line" in

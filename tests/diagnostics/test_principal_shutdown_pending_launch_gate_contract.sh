@@ -9,7 +9,7 @@ scan() {
     if command -v rg >/dev/null 2>&1; then
         rg -n "$pattern" "$TARGET" || true
     else
-        echo "warning: rg unavailable; using grep fallback for principal launch-gate contract scan"
+        echo "warning: rg unavailable; using grep fallback for principal launch-gate contract scan" >&2
         grep -nE "$pattern" "$TARGET" || true
     fi
 }

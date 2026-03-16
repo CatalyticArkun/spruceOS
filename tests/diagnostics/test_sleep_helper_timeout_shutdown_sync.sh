@@ -19,7 +19,7 @@ TEST_TMP="/tmp/sleep_helper_timeout_test"
 mkdir -p "$TEST_TMP"
 
 log_message() { :; }
-power_trace_emit() { :; }
+system_emit() { :; }
 log_activity_event() { :; }
 get_current_app() { echo "test-app"; }
 get_config_value() { echo "5s"; }

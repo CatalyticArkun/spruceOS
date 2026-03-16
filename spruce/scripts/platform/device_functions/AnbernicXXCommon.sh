@@ -162,10 +162,18 @@ device_system_handles_sdcard_unmount() {
 set_volume() {
     new_vol="${1:-0}"        # default to mute
     SAVE_TO_CONFIG="${2:-true}"
+    TRACE_SOURCE="${3:-AnbernicXXCommon.sh:set_volume}"
+    TRACE_CONTEXT="${4:-set volume to ${new_vol}}"
 
     # Clamp 0–20
     [ "$new_vol" -lt 0 ] && new_vol=0
     [ "$new_vol" -gt 20 ] && new_vol=20
+
+    current_volume="$(jq -r '.vol // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
+    case "$current_volume" in
+        ''|*[!0-9]*) current_state="UNKNOWN" ;;
+        *) current_state="VOL_${current_volume}" ;;
+    esac
 
     # Map 0–20 -> 0–31 (rounded)
     system_volume=$(( (new_vol * 31 + 10) / 20 ))
@@ -182,6 +190,8 @@ set_volume() {
                 "$SYSTEM_JSON" > "$SYSTEM_JSON.tmp" && mv "$SYSTEM_JSON.tmp" "$SYSTEM_JSON"
         fi
     fi
+
+    system_emit "audio" "$current_state" "VOL_${new_vol}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
 }
 
 set_volume_delta() {
