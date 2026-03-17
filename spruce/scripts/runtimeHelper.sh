@@ -369,6 +369,39 @@ set_volume_to_config() {
     [ -n "$vol" ] && set_volume "$vol"
 }
 
+emit_startup_av_trace_from_config() {
+    if [ -z "${SYSTEM_JSON:-}" ] || [ ! -f "$SYSTEM_JSON" ]; then
+        return 0
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        return 0
+    fi
+
+    startup_vol="$(jq -r '.vol // empty' "$SYSTEM_JSON" 2>/dev/null || true)"
+    case "$startup_vol" in
+        ''|*[!0-9]*)
+            ;;
+        *)
+            startup_audio_last="$(trace_fsm_get_last_state "audio" 2>/dev/null)"
+            if [ -z "$startup_audio_last" ]; then
+                system_emit "audio" "UNKNOWN" "VOL_${startup_vol}" "runtimeHelper.sh" "startup volume baseline from SYSTEM_JSON" || true
+            fi
+            ;;
+    esac
+
+    startup_bl="$(jq -r '.backlight // empty' "$SYSTEM_JSON" 2>/dev/null || true)"
+    case "$startup_bl" in
+        ''|*[!0-9]*)
+            ;;
+        *)
+            startup_bl_last="$(trace_fsm_get_last_state "brightness" 2>/dev/null)"
+            if [ -z "$startup_bl_last" ]; then
+                system_emit "brightness" "UNKNOWN" "BL_${startup_bl}" "runtimeHelper.sh" "startup brightness baseline from SYSTEM_JSON" || true
+            fi
+            ;;
+    esac
+}
+
 auto_resume_game() {
     log_message "save_active flag detected. Autoresuming game."
 

@@ -69,6 +69,27 @@ get_shutdown_timer() {
 }
 
 
+read_system_json_int() {
+    key="$1"
+
+    if [ -z "${SYSTEM_JSON:-}" ] || [ ! -f "$SYSTEM_JSON" ]; then
+        return 1
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        return 1
+    fi
+
+    value="$(jq -r "$key // empty" "$SYSTEM_JSON" 2>/dev/null || true)"
+    case "$value" in
+        ''|*[!0-9]*)
+            return 1
+            ;;
+    esac
+
+    printf '%s\n' "$value"
+    return 0
+}
+
 trigger_sleep() {
     log_message "Entering sleep"
     system_emit "power" "RUNNING" "SLEEP" "sleep_helper.sh" "entering sleep" || true
@@ -78,8 +99,17 @@ trigger_sleep() {
     local IDLE_TIMEOUT
     IDLE_TIMEOUT=$(get_shutdown_timer)
     start_ts=$(date +%s)
+    pre_sleep_vol="$(read_system_json_int '.vol' || true)"
     set_volume 0 false # Mute on sleep so when we wake to shutdown it's silent
-    system_emit "audio" "UNKNOWN" "VOL_0" "sleep_helper.sh" "muted on sleep entry" || true
+    case "$pre_sleep_vol" in
+        ''|*[!0-9]*) system_emit "audio" "UNKNOWN" "VOL_0" "sleep_helper.sh" "muted on sleep entry" || true ;;
+        *)          system_emit "audio" "VOL_${pre_sleep_vol}" "VOL_0" "sleep_helper.sh" "muted on sleep entry" || true ;;
+    esac
+    pre_sleep_bl="$(read_system_json_int '.backlight' || true)"
+    case "$pre_sleep_bl" in
+        ''|*[!0-9]*) ;;
+        *)          system_emit "brightness" "BL_${pre_sleep_bl}" "BL_${pre_sleep_bl}" "sleep_helper.sh" "brightness baseline on sleep entry" || true ;;
+    esac
     device_enter_sleep "$IDLE_TIMEOUT"
     if [ "$(device_uses_pseudo_sleep)" = "true" ]; then
         log_message "Device uses pseudosleep -- starting idle loop"
@@ -154,9 +184,19 @@ system_emit "power" "SLEEP" "RUNNING" "sleep_helper.sh" "woke from sleep" || tru
 log_activity_event "$current_app" "START"
 
 # Restore volume before unpausing so audio is ready
-VOLUME_LV=$(jq -r '.vol' "$SYSTEM_JSON")
-set_volume "$VOLUME_LV"
-system_emit "audio" "VOL_0" "VOL_${VOLUME_LV}" "sleep_helper.sh" "volume restored on wake" || true
+VOLUME_LV="$(read_system_json_int '.vol' || true)"
+case "$VOLUME_LV" in
+    ''|*[!0-9]*) ;;
+    *)
+        set_volume "$VOLUME_LV"
+        system_emit "audio" "VOL_0" "VOL_${VOLUME_LV}" "sleep_helper.sh" "volume restored on wake" || true
+        ;;
+esac
+WAKE_BL="$(read_system_json_int '.backlight' || true)"
+case "$WAKE_BL" in
+    ''|*[!0-9]*) ;;
+    *)          system_emit "brightness" "BL_${WAKE_BL}" "BL_${WAKE_BL}" "sleep_helper.sh" "brightness baseline on wake" || true ;;
+esac
 
 
 kill "$GET_EVENT_PID" 2>/dev/null

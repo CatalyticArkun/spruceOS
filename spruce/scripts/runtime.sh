@@ -20,6 +20,7 @@ rotate_logs
 log_file="/mnt/SDCARD/Saves/spruce/spruce.log" # Resetting log file location
 log_message "---------Starting up---------"
 trace_fsm_boot_init "runtime.sh" || true
+emit_startup_av_trace_from_config || true
 
 run_sd_card_fix_if_triggered    # do this before anything else
 set_performance

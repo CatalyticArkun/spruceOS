@@ -266,6 +266,39 @@ exec_shutdown_stage_2() {
     fi
 }
 
+
+emit_shutdown_av_trace_fallback() {
+    if [ -z "${SYSTEM_JSON:-}" ] || [ ! -f "$SYSTEM_JSON" ]; then
+        return 0
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        return 0
+    fi
+
+    shutdown_audio_last="$(trace_fsm_get_last_state "audio" 2>/dev/null)"
+    if [ -z "$shutdown_audio_last" ]; then
+        shutdown_vol="$(jq -r '.vol // empty' "$SYSTEM_JSON" 2>/dev/null || true)"
+        case "$shutdown_vol" in
+            ''|*[!0-9]*)
+                ;;
+            *)
+                system_emit "audio" "UNKNOWN" "VOL_${shutdown_vol}" "save_poweroff.sh" "shutdown fallback volume baseline from SYSTEM_JSON" || true
+                ;;
+        esac
+    fi
+
+    shutdown_bl_last="$(trace_fsm_get_last_state "brightness" 2>/dev/null)"
+    if [ -z "$shutdown_bl_last" ]; then
+        shutdown_bl="$(jq -r '.backlight // empty' "$SYSTEM_JSON" 2>/dev/null || true)"
+        case "$shutdown_bl" in
+            ''|*[!0-9]*)
+                ;;
+            *)
+                system_emit "brightness" "UNKNOWN" "BL_${shutdown_bl}" "save_poweroff.sh" "shutdown fallback brightness baseline from SYSTEM_JSON" || true
+                ;;
+        esac
+    fi
+}
     #######################################
 ##### PREVENT RE-ENTRY IF ALREADY RUNNING #####
     #######################################
@@ -294,6 +327,7 @@ case "${_se_p_current:-}" in
     *) _se_p_current="RUNNING" ;;
 esac
 system_emit "power" "$_se_p_current" "$_se_req" "save_poweroff.sh" "shutdown triggered" || true
+emit_shutdown_av_trace_fallback || true
 trace_fsm_shutdown_finalize "save_poweroff.sh" || true
 unset _se_req _se_p_current
 blink_led_if_applicable
