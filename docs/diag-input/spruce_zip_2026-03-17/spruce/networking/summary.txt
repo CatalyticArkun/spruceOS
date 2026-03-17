@@ -1,0 +1,10 @@
+1970-05-06T04:49:58Z | networking current=TRACE_INITIALIZE requested=TRACE_INITIALIZE source=trace_fsm context=first trace session source=runtime.sh
+1970-05-06T04:49:59Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:04Z | networking current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:18Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:53Z | networking current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:53:11Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:54:14Z | networking current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:54:30Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:55:39Z | networking current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:56:09Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh

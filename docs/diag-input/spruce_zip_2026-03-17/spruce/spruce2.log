@@ -1,0 +1,54 @@
+1970-05-06 04:53:10 - ---------Starting up---------
+1970-05-06 04:53:12 - Performing read-only check
+1970-05-06 04:53:12 - mount line for SD card: /dev/mmcblk0p1 on /mnt/SDCARD type vfat (rw,dirsync,relatime,fmask=0000,dmask=0000,allow_utime=0022,codepage=437,iocharset=utf8,shortname=mixed,tz=UTC,errors=remount-ro)
+1970-05-06 04:53:12 - SD card does not appear to be read only
+1970-05-06 04:53:12 - SD card is not read-only.
+1970-05-06 04:53:12 - Setting cpu to performance
+1970-05-06 04:53:12 - Unpacker: Script started
+1970-05-06 04:53:12 - Unpacker: Starting theme and archive unpacking process
+1970-05-06 04:53:12 - Unpacker: Finished running
+1970-05-06 04:53:12 - No update file found; hiding Updater app
+1970-05-06 04:53:12 - Launching common startup watchdogs
+1970-05-06 04:53:12 - Auto Resume skipped (no save_active flag)
+1970-05-06 04:53:12 - power_button_watchdog_v2.sh: Started up.
+1970-05-06 04:53:12 - No swapfile requested by user settings.
+1970-05-06 04:53:12 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0
+1970-05-06 04:53:12 - Setting cpu to ondemand
+1970-05-06 04:53:12 - homebutton_watchdog.sh: Started up.
+1970-05-06 04:53:12 - Selected boot action is spruceUI.
+1970-05-06 04:53:12 - Starting main loop
+1970-05-06 04:53:13 - Starting new loop of principal.sh
+1970-05-06 04:53:13 - Setting cpu to ondemand
+1970-05-06 04:53:13 - Launching wpa_supplicant
+1970-05-06 04:53:13 - WiFi turned on
+1970-05-06 04:53:15 - rgb led not supported on miyoo mini
+1970-05-06 04:53:15 - rgb led not supported on miyoo mini
+1970-05-06 04:53:15 - Setting cpu to performance
+1970-05-06 04:53:16 - Starting PyUI on MiyooMini
+1970-05-06 04:53:33 - Update Check: Waiting for network connection (attempt 1 of 3)...
+1970-05-06 04:53:45 - power_button_watchdog_v2.sh: power_key_down
+1970-05-06 04:53:45 - Power button pressed at 10817625
+1970-05-06 04:53:45 - power_button_watchdog_v2.sh: power_key_up
+1970-05-06 04:53:45 - Power button released at 10817625
+1970-05-06 04:53:46 - Sleep helper starting up...
+1970-05-06 04:53:46 - Entering sleep
+1970-05-06 04:53:46 - Device uses pseudosleep -- starting idle loop
+1970-05-06 04:53:46 - Starting idle timeout countdown: 300s until poweroff if lid remains closed
+1970-05-06 04:53:52 - Power button pressed, exiting pseudosleep
+1970-05-06 04:53:53 - Update Check: Waiting for network connection (attempt 2 of 3)...
+1970-05-06 04:53:55 - power_button_watchdog_v2.sh: power_key_down
+1970-05-06 04:53:55 - Power button pressed during cooldown at 10817635, LAST_POWER_DOWN=10817635
+1970-05-06 04:53:55 - power_button_watchdog_v2.sh: power_key_up
+1970-05-06 04:53:55 - Power button released during cooldown at 10817635
+1970-05-06 04:53:55 - power_button_watchdog_v2.sh: power_key_down
+1970-05-06 04:53:55 - Power button pressed during cooldown at 10817635, LAST_POWER_DOWN=10817635
+1970-05-06 04:53:55 - power_button_watchdog_v2.sh: power_key_up
+1970-05-06 04:53:55 - Power button released during cooldown at 10817635
+1970-05-06 04:54:11 - power_button_watchdog_v2.sh: power_key_down
+1970-05-06 04:54:11 - Power button pressed at 10817651
+1970-05-06 04:54:13 - Update Check: Failed to establish network connection after 3 attempts.
+1970-05-06 04:54:13 - power_button_watchdog_v2.sh: Powering off due to power button hold.
+1970-05-06 04:54:13 - power_button_watchdog_v2.sh: getevent pipe exited, restarting...
+1970-05-06 04:54:14 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0
+1970-05-06 04:54:15 - power_button_watchdog_v2.sh: getevent pipe exited, restarting...
+1970-05-06 04:54:16 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0

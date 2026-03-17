@@ -1,0 +1,14 @@
+{"ts":10817485,"event":"START","app":"PyUI","pid":2280}
+{"ts":10817525,"event":"STOP","app":"PyUI","pid":2686}
+{"ts":10817561,"event":"START","app":"PyUI","pid":1597}
+{"ts":10817574,"event":"STOP","app":"PyUI","pid":1848}
+{"ts":10817595,"event":"START","app":"PyUI","pid":1382}
+{"ts":10817625,"event":"STOP","app":"PyUI","pid":1985}
+{"ts":10817633,"event":"START","app":"PyUI","pid":1985}
+{"ts":10817655,"event":"STOP","app":"PyUI","pid":2543}
+{"ts":10817674,"event":"START","app":"PyUI","pid":1329}
+{"ts":10817699,"event":"STOP","app":"PyUI","pid":1329}
+{"ts":10817713,"event":"START","app":"Roms/GB/Final Fantasy Adventure (USA).zip","pid":1329}
+{"ts":10817724,"event":"STOP","app":"Roms/GB/Final Fantasy Adventure (USA).zip","pid":2233}
+{"ts":10817733,"event":"START","app":"Roms/GB/Final Fantasy Adventure (USA).zip","pid":2233}
+{"ts":10817740,"event":"STOP","app":"Roms/GB/Final Fantasy Adventure (USA).zip","pid":2698}

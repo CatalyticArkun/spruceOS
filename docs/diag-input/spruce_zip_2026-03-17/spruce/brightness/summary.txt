@@ -1,0 +1,18 @@
+1970-05-06T04:49:58Z | brightness current=TRACE_INITIALIZE requested=TRACE_INITIALIZE source=trace_fsm context=first trace session source=runtime.sh
+1970-05-06T04:49:59Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:04Z | brightness current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no brightness state recorded this session
+1970-05-06T04:52:05Z | brightness current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:18Z | brightness current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no brightness state persisted from previous session
+1970-05-06T04:52:18Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:53Z | brightness current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no brightness state recorded this session
+1970-05-06T04:52:53Z | brightness current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:53:11Z | brightness current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no brightness state persisted from previous session
+1970-05-06T04:53:11Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:54:14Z | brightness current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no brightness state recorded this session
+1970-05-06T04:54:15Z | brightness current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:54:30Z | brightness current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no brightness state persisted from previous session
+1970-05-06T04:54:30Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:55:39Z | brightness current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no brightness state recorded this session
+1970-05-06T04:55:40Z | brightness current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:56:09Z | brightness current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no brightness state persisted from previous session
+1970-05-06T04:56:09Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh

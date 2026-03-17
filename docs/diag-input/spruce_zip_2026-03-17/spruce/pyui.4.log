@@ -1,0 +1,52 @@
+1970-05-06 04:53:25,844 - mainui.py:209 - main - INFO - Namespace(logDir='/mnt/SDCARD/Saves/spruce', pyUiConfig='/mnt/SDCARD/App/PyUI/py-ui-config.json', device='MIYOO_MINI_PLUS', cfwConfig='/mnt/SDCARD/Saves/spruce/spruce-config.json', msgDisplay=None, msgDisplayTimeMs=None, msgDisplayRealtime=None, msgDisplayRealtimePort=None, optionListFile=None, optionListTitle=None, buttonListenerMode=None, startupInitOnly=None)
+1970-05-06 04:53:25,851 - time_logger.py:11 - log_timing - INFO - Config initialization completed in 0.004s
+1970-05-06 04:53:25,964 - time_logger.py:11 - log_timing - INFO - Device initialization completed in 0.112s
+1970-05-06 04:53:25,965 - py_ui_state.py:46 - _read_from_file - ERROR - State file not found: /mnt/SDCARD/Saves/pyui-state.json, using defaults.
+1970-05-06 04:53:25,983 - time_logger.py:11 - log_timing - INFO - Theme initialization completed in 0.017s
+1970-05-06 04:53:25,995 - miyoo_mini_common.py:345 - start_wifi_services - INFO - Wifi is disabled - trying to enable it...
+1970-05-06 04:53:26,016 - time_logger.py:11 - log_timing - INFO - sdl2.ext.init completed in 0.032s
+1970-05-06 04:53:26,017 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_DisplayMode completed in 0.000s
+1970-05-06 04:53:26,019 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Window completed in 0.000s
+1970-05-06 04:53:26,021 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Renderer completed in 0.001s
+1970-05-06 04:53:26,641 - time_logger.py:11 - log_timing - INFO - sdl2.sdlttf.TTF_Init() completed in 0.619s
+1970-05-06 04:53:26,643 - time_logger.py:11 - log_timing - INFO - sdl2 create render canvas completed in 0.000s
+1970-05-06 04:53:26,644 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_SetRenderTarget completed in 0.000s
+1970-05-06 04:53:26,646 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_SetRenderDrawBlendMode completed in 0.000s
+1970-05-06 04:53:28,130 - time_logger.py:11 - log_timing - INFO - sdl2.ext.init completed in 0.010s
+1970-05-06 04:53:28,131 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_DisplayMode completed in 0.000s
+1970-05-06 04:53:28,132 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Window completed in 0.000s
+1970-05-06 04:53:28,134 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Renderer completed in 0.001s
+1970-05-06 04:53:28,709 - time_logger.py:11 - log_timing - INFO - restore_bg completed in 0.000s
+1970-05-06 04:53:28,717 - time_logger.py:11 - log_timing - INFO - clear completed in 0.005s
+1970-05-06 04:53:28,718 - time_logger.py:11 - log_timing - INFO - Display initialization completed in 2.734s
+1970-05-06 04:53:28,726 - time_logger.py:11 - log_timing - INFO - Display Present completed in 0.007s
+1970-05-06 04:53:28,741 - theme_patcher.py:87 - patch_theme - DEBUG - Theme background size: 640x480, Target size: 640x480
+1970-05-06 04:53:28,771 - time_logger.py:11 - log_timing - INFO - Entire Startup initialization completed in 2.924s
+1970-05-06 04:53:30,691 - mainui.py:258 - main - INFO - Entering main loop
+1970-05-06 04:53:32,047 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:32,050 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 259)
+1970-05-06 04:53:33,105 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:33,108 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 259)
+1970-05-06 04:53:34,365 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:34,367 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 259)
+1970-05-06 04:53:37,305 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:37,307 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 259)
+1970-05-06 04:53:38,775 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:38,777 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 259)
+1970-05-06 04:53:39,405 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:39,407 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 259)
+1970-05-06 04:53:40,875 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:40,877 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 260)
+1970-05-06 04:53:41,925 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:41,926 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 260)
+1970-05-06 04:53:42,555 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:53:42,557 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 260)
+1970-05-06 04:53:55,745 - main_menu.py:158 - launch_selection - INFO - Launching Setting Menu
+1970-05-06 04:54:00,785 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:54:00,787 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 260)
+1970-05-06 04:54:02,045 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:54:02,046 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 260)
+1970-05-06 04:54:02,886 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:54:02,891 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 260)
+1970-05-06 04:54:03,305 - file_watcher.py:17 - watch_file - INFO - /appconfigs/system.json detection changed.
+1970-05-06 04:54:03,307 - miyoo_mini_common.py:79 - on_mainui_config_change - WARNING - JSON parse failed for /appconfigs/system.json, attempting fallback parse: Extra data: line 17 column 2 (char 260)
