@@ -1,0 +1,31 @@
+1970-05-06 04:52:45,642 - mainui.py:209 - main - INFO - Namespace(logDir='/mnt/SDCARD/Saves/spruce', pyUiConfig='/mnt/SDCARD/App/PyUI/py-ui-config.json', device='MIYOO_MINI_PLUS', cfwConfig='/mnt/SDCARD/Saves/spruce/spruce-config.json', msgDisplay=None, msgDisplayTimeMs=None, msgDisplayRealtime=None, msgDisplayRealtimePort=None, optionListFile=None, optionListTitle=None, buttonListenerMode=None, startupInitOnly=None)
+1970-05-06 04:52:45,648 - time_logger.py:11 - log_timing - INFO - Config initialization completed in 0.004s
+1970-05-06 04:52:45,794 - time_logger.py:11 - log_timing - INFO - Device initialization completed in 0.145s
+1970-05-06 04:52:45,795 - py_ui_state.py:46 - _read_from_file - ERROR - State file not found: /mnt/SDCARD/Saves/pyui-state.json, using defaults.
+1970-05-06 04:52:45,811 - time_logger.py:11 - log_timing - INFO - Theme initialization completed in 0.014s
+1970-05-06 04:52:45,822 - time_logger.py:11 - log_timing - INFO - sdl2.ext.init completed in 0.010s
+1970-05-06 04:52:45,824 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_DisplayMode completed in 0.000s
+1970-05-06 04:52:45,825 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Window completed in 0.000s
+1970-05-06 04:52:45,827 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Renderer completed in 0.001s
+1970-05-06 04:52:45,853 - miyoo_mini_common.py:345 - start_wifi_services - INFO - Wifi is disabled - trying to enable it...
+1970-05-06 04:52:45,948 - time_logger.py:11 - log_timing - INFO - sdl2.sdlttf.TTF_Init() completed in 0.120s
+1970-05-06 04:52:45,949 - time_logger.py:11 - log_timing - INFO - sdl2 create render canvas completed in 0.000s
+1970-05-06 04:52:45,951 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_SetRenderTarget completed in 0.000s
+1970-05-06 04:52:45,952 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_SetRenderDrawBlendMode completed in 0.000s
+1970-05-06 04:52:48,532 - time_logger.py:11 - log_timing - INFO - sdl2.ext.init completed in 0.010s
+1970-05-06 04:52:48,533 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_DisplayMode completed in 0.000s
+1970-05-06 04:52:48,534 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Window completed in 0.000s
+1970-05-06 04:52:48,536 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Renderer completed in 0.001s
+1970-05-06 04:52:48,824 - time_logger.py:11 - log_timing - INFO - restore_bg completed in 0.000s
+1970-05-06 04:52:48,830 - time_logger.py:11 - log_timing - INFO - clear completed in 0.005s
+1970-05-06 04:52:48,831 - time_logger.py:11 - log_timing - INFO - Display initialization completed in 3.019s
+1970-05-06 04:52:48,839 - time_logger.py:11 - log_timing - INFO - Display Present completed in 0.007s
+1970-05-06 04:52:48,886 - theme_patcher.py:87 - patch_theme - DEBUG - Theme background size: 640x480, Target size: 640x480
+1970-05-06 04:52:48,909 - time_logger.py:11 - log_timing - INFO - Entire Startup initialization completed in 3.265s
+1970-05-06 04:52:49,758 - mainui.py:258 - main - INFO - Entering main loop
+1970-05-06 04:52:51,394 - main_menu.py:158 - launch_selection - INFO - Launching Setting Menu
+1970-05-06 04:52:52,167 - device_common.py:36 - prompt_power_down - INFO - Prompting for shutdown
+1970-05-06 04:52:52,315 - device_common.py:36 - prompt_power_down - INFO - Prompting for shutdown
+1970-05-06 04:52:52,415 - device_common.py:36 - prompt_power_down - INFO - Prompting for shutdown
+1970-05-06 04:52:52,515 - device_common.py:36 - prompt_power_down - INFO - Prompting for shutdown
+1970-05-06 04:52:52,547 - miyoo_trim_common.py:95 - run_cmd - DEBUG - About to launch app ['/mnt/SDCARD/spruce/scripts/save_poweroff.sh'] from dir None

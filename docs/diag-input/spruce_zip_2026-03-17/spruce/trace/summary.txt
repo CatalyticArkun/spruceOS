@@ -1,0 +1,69 @@
+1970-05-06T04:49:58Z | power current=TRACE_INITIALIZE requested=TRACE_INITIALIZE source=trace_fsm context=first trace session source=runtime.sh
+1970-05-06T04:49:58Z | networking current=TRACE_INITIALIZE requested=TRACE_INITIALIZE source=trace_fsm context=first trace session source=runtime.sh
+1970-05-06T04:49:58Z | audio current=TRACE_INITIALIZE requested=TRACE_INITIALIZE source=trace_fsm context=first trace session source=runtime.sh
+1970-05-06T04:49:58Z | brightness current=TRACE_INITIALIZE requested=TRACE_INITIALIZE source=trace_fsm context=first trace session source=runtime.sh
+1970-05-06T04:49:58Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:49:59Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:49:59Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:49:59Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:49:59Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:04Z | power current=RUNNING requested=REBOOT source=save_poweroff.sh context=shutdown triggered
+1970-05-06T04:52:04Z | audio current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no audio state recorded this session
+1970-05-06T04:52:04Z | brightness current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no brightness state recorded this session
+1970-05-06T04:52:04Z | power current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:04Z | networking current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:05Z | audio current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:05Z | brightness current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:17Z | audio current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no audio state persisted from previous session
+1970-05-06T04:52:18Z | brightness current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no brightness state persisted from previous session
+1970-05-06T04:52:18Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:52:18Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:18Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:18Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:18Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:52Z | power current=RUNNING requested=OFF source=save_poweroff.sh context=shutdown triggered
+1970-05-06T04:52:52Z | audio current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no audio state recorded this session
+1970-05-06T04:52:53Z | brightness current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no brightness state recorded this session
+1970-05-06T04:52:53Z | power current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:53Z | networking current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:53Z | audio current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:53Z | brightness current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:53:10Z | audio current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no audio state persisted from previous session
+1970-05-06T04:53:11Z | brightness current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no brightness state persisted from previous session
+1970-05-06T04:53:11Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:53:11Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:53:11Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:53:11Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:53:11Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:53:46Z | power current=RUNNING requested=SLEEP source=sleep_helper.sh context=entering sleep
+1970-05-06T04:53:46Z | audio current=UNKNOWN requested=VOL_0 source=sleep_helper.sh context=muted on sleep entry
+1970-05-06T04:53:53Z | power current=SLEEP requested=RUNNING source=sleep_helper.sh context=woke from sleep
+1970-05-06T04:53:53Z | audio current=VOL_0 requested=VOL_0 source=sleep_helper.sh context=volume restored on wake
+1970-05-06T04:54:14Z | power current=RUNNING requested=OFF source=save_poweroff.sh context=shutdown triggered
+1970-05-06T04:54:14Z | brightness current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no brightness state recorded this session
+1970-05-06T04:54:14Z | power current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:54:14Z | networking current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:54:14Z | audio current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:54:15Z | brightness current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:54:30Z | brightness current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no brightness state persisted from previous session
+1970-05-06T04:54:30Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:54:30Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:54:30Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:54:30Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:54:30Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:55:24Z | power current=RUNNING requested=SLEEP source=sleep_helper.sh context=entering sleep
+1970-05-06T04:55:25Z | audio current=UNKNOWN requested=VOL_0 source=sleep_helper.sh context=muted on sleep entry
+1970-05-06T04:55:32Z | power current=SLEEP requested=RUNNING source=sleep_helper.sh context=woke from sleep
+1970-05-06T04:55:33Z | audio current=VOL_0 requested=VOL_1 source=sleep_helper.sh context=volume restored on wake
+1970-05-06T04:55:39Z | power current=RUNNING requested=OFF source=save_poweroff.sh context=shutdown triggered
+1970-05-06T04:55:39Z | brightness current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no brightness state recorded this session
+1970-05-06T04:55:39Z | power current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:55:39Z | networking current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:55:40Z | audio current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:55:40Z | brightness current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:56:09Z | brightness current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no brightness state persisted from previous session
+1970-05-06T04:56:09Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:56:09Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:56:09Z | networking current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:56:09Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:56:09Z | brightness current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh

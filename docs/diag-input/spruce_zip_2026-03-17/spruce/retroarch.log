@@ -1,0 +1,67 @@
+[INFO] [Config] Looking for config in: "/mnt/SDCARD/RetroArch//.retroarch/retroarch.cfg".
+[INFO] RetroArch 1.22.2 (Git 69a4f0e)
+[INFO] === Build =======================================
+[INFO] CPU Model Name: ARMv7 Processor rev 5 (v7l)
+
+[INFO] Capabilities: NEON VFPV3 VFPV4 
+[INFO] Version: 1.22.2
+[INFO] Git: 69a4f0e
+[INFO] Built: Mar 16 2026
+[INFO] =================================================
+[INFO] [Input] Found input driver: "sdl_dingux".
+[INFO] [Core info] Wrote to cache file: "/mnt/SDCARD/RetroArch/.retroarch/info/core_info.cache".
+[INFO] [Core] Loading dynamic libretro core from: "/mnt/SDCARD/RetroArch/.retroarch/cores/gambatte_libretro.so".
+[INFO] [Override] Redirecting save file to "/mnt/SDCARD/Saves/saves/Gambatte/Final Fantasy Adventure (USA).srm".
+[INFO] [Override] Redirecting save state to "/mnt/SDCARD/Saves/states/Gambatte/Final Fantasy Adventure (USA).state".
+[INFO] [Environ] GET_CORE_OPTIONS_VERSION.
+[INFO] [Environ] GET_LANGUAGE: "0".
+[INFO] [Environ] SET_CORE_OPTIONS_V2_INTL.
+[INFO] [Core] Folder-specific core options found at "./.retroarch/config/Gambatte/GB.opt".
+[INFO] [Environ] GET_VFS_INTERFACE. Core requested version >= V2, providing V3.
+[INFO] [Remap] Core-specific remap found at "/mnt/SDCARD/RetroArch/.retroarch/config/remaps/Gambatte/Gambatte.rmp".
+[INFO] [Environ] GET_LOG_INTERFACE.
+[INFO] [Environ] SET_PERFORMANCE_LEVEL: 4.
+[INFO] [Environ] GET_LANGUAGE: "0".
+[INFO] [Content] Loading content file: "/mnt/SDCARD/Roms/GB/Final Fantasy Adventure (USA).zip#Final Fantasy Adventure (USA).gb".
+[INFO] [Content] CRC32: 0x18c78b3a.
+[INFO] [Environ] GET_CAN_DUPE: true.
+[INFO] [Environ] GET_RUMBLE_INTERFACE.
+[libretro INFO] [Gambatte] Rumble environment supported.
+[INFO] [Environ] SET_INPUT_DESCRIPTORS.
+[INFO] [Environ] SET_PIXEL_FORMAT: RGB565.
+[INFO] [Environ] GET_SYSTEM_DIRECTORY: "/mnt/SDCARD/BIOS".
+[libretro INFO] [Gambatte] MBC2 ROM+BATTERY loaded.
+[libretro INFO] [Gambatte] rambanks: 1
+[libretro INFO] [Gambatte] rombanks: 16
+[libretro INFO] [Gambatte] Got internal game name: SEIKEN DENSETSU.
+[INFO] [Environ] SET_MEMORY_MAPS.
+[INFO] [State] found_last_state_slot: #10.
+[INFO] [SRAM] Skipping SRAM load.
+[INFO] [Core] Version of libretro API: 1, Compiled against API: 1
+[INFO] [Core] Geometry: 160x144, Aspect: 1.111, FPS: 59.73, Sample rate: 32768.00 Hz.
+[INFO] [Video] Set video size to: 320x240.
+[INFO] [CPU]: Path not found: ./.retroarch/config/Gambatte/cpuclock.txt
+[INFO] [CPU]: Path not found: ./cpuclock.txt
+[INFO] [MI_GFX]: Resolution: 640x480
+[INFO] [MI_GFX]: Menu stretch disabled
+[INFO] [Input] Found joypad driver: "sdl_dingux".
+[INFO] [Video] Found display server: "null".
+[INFO] [Audio] Set audio input rate to: 32917.50 Hz.
+[INFO] [Audio] Started synchronous audio driver.
+[INFO] [NetCMD] bringing_up_command_interface_at_port 55355.
+[INFO] [Playlist] Loading favorites file: "/mnt/SDCARD/RetroArch/.retroarch/playlists/builtin/content_favorites.lpl".
+[INFO] [Playlist] Loading history file: "/mnt/SDCARD/RetroArch/.retroarch/playlists/builtin/content_history.lpl".
+[INFO] [Playlist] Loading history file: "/mnt/SDCARD/RetroArch/.retroarch/playlists/builtin/content_music_history.lpl".
+[INFO] [Playlist] Written to file: "/mnt/SDCARD/RetroArch/.retroarch/playlists/builtin/content_history.lpl".
+[INFO] [State] Auto save state to "/mnt/SDCARD/Saves/states/Gambatte/Final Fantasy Adventure (USA).state.auto" succeeded.
+[INFO] [Config] Saved config to "/mnt/SDCARD/RetroArch//.retroarch/retroarch.cfg".
+[INFO] [SRAM] Saving RAM type #0 to "/mnt/SDCARD/Saves/saves/Gambatte/Final Fantasy Adventure (USA).srm".
+[INFO] [SRAM] Saved successfully to "/mnt/SDCARD/Saves/saves/Gambatte/Final Fantasy Adventure (USA).srm".
+[INFO] [Runtime] Content ran for a total of: 00 hours, 00 minutes, 21 seconds.
+[INFO] [Runtime] Saving runtime log file: "/mnt/SDCARD/RetroArch/.retroarch/playlists/logs/Gambatte/Final Fantasy Adventure (USA).lrtl".
+[INFO] [Core] Unloading game...
+[INFO] [Core] Unloading core...
+[INFO] [Core] Unloading core symbols...
+[INFO] [Core] Saved folder-specific core options to "./.retroarch/config/Gambatte/GB.opt".
+[INFO] [Playlist] Written to file: "/mnt/SDCARD/RetroArch/.retroarch/playlists/builtin/content_music_history.lpl".
+[INFO] [Autoconf] Dingux Gamepad disconnected from port 1.

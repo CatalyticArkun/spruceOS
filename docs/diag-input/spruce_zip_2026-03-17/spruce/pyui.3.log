@@ -1,0 +1,34 @@
+1970-05-06 04:54:44,923 - mainui.py:209 - main - INFO - Namespace(logDir='/mnt/SDCARD/Saves/spruce', pyUiConfig='/mnt/SDCARD/App/PyUI/py-ui-config.json', device='MIYOO_MINI_PLUS', cfwConfig='/mnt/SDCARD/Saves/spruce/spruce-config.json', msgDisplay=None, msgDisplayTimeMs=None, msgDisplayRealtime=None, msgDisplayRealtimePort=None, optionListFile=None, optionListTitle=None, buttonListenerMode=None, startupInitOnly=None)
+1970-05-06 04:54:44,929 - time_logger.py:11 - log_timing - INFO - Config initialization completed in 0.004s
+1970-05-06 04:54:45,075 - time_logger.py:11 - log_timing - INFO - Device initialization completed in 0.144s
+1970-05-06 04:54:45,076 - py_ui_state.py:46 - _read_from_file - ERROR - State file not found: /mnt/SDCARD/Saves/pyui-state.json, using defaults.
+1970-05-06 04:54:45,088 - time_logger.py:11 - log_timing - INFO - Theme initialization completed in 0.011s
+1970-05-06 04:54:45,107 - miyoo_mini_common.py:345 - start_wifi_services - INFO - Wifi is disabled - trying to enable it...
+1970-05-06 04:54:45,122 - time_logger.py:11 - log_timing - INFO - sdl2.ext.init completed in 0.033s
+1970-05-06 04:54:45,123 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_DisplayMode completed in 0.000s
+1970-05-06 04:54:45,124 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Window completed in 0.000s
+1970-05-06 04:54:45,126 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Renderer completed in 0.001s
+1970-05-06 04:54:45,319 - time_logger.py:11 - log_timing - INFO - sdl2.sdlttf.TTF_Init() completed in 0.190s
+1970-05-06 04:54:45,321 - time_logger.py:11 - log_timing - INFO - sdl2 create render canvas completed in 0.000s
+1970-05-06 04:54:45,322 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_SetRenderTarget completed in 0.000s
+1970-05-06 04:54:45,323 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_SetRenderDrawBlendMode completed in 0.000s
+1970-05-06 04:54:47,267 - time_logger.py:11 - log_timing - INFO - sdl2.ext.init completed in 0.011s
+1970-05-06 04:54:47,268 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_DisplayMode completed in 0.000s
+1970-05-06 04:54:47,270 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Window completed in 0.000s
+1970-05-06 04:54:47,271 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Renderer completed in 0.001s
+1970-05-06 04:54:47,794 - time_logger.py:11 - log_timing - INFO - restore_bg completed in 0.000s
+1970-05-06 04:54:47,801 - time_logger.py:11 - log_timing - INFO - clear completed in 0.005s
+1970-05-06 04:54:47,802 - time_logger.py:11 - log_timing - INFO - Display initialization completed in 2.713s
+1970-05-06 04:54:47,810 - time_logger.py:11 - log_timing - INFO - Display Present completed in 0.008s
+1970-05-06 04:54:47,827 - theme_patcher.py:87 - patch_theme - DEBUG - Theme background size: 640x480, Target size: 640x480
+1970-05-06 04:54:47,873 - time_logger.py:11 - log_timing - INFO - Entire Startup initialization completed in 2.948s
+1970-05-06 04:54:50,238 - mainui.py:258 - main - INFO - Entering main loop
+1970-05-06 04:54:53,598 - main_menu.py:133 - launch_selection - INFO - Launching Game Menu
+1970-05-06 04:54:55,570 - file_based_game_system_config.py:129 - get_effective_menu_selection - INFO - No menu option found for Emulator_MiyooMini
+1970-05-06 04:54:55,597 - file_based_game_system_config.py:129 - get_effective_menu_selection - INFO - No menu option found for Emulator_MiyooMini
+1970-05-06 04:54:55,600 - file_based_game_system_config.py:129 - get_effective_menu_selection - INFO - No menu option found for Emulator_MiyooMini
+1970-05-06 04:54:55,604 - file_based_game_system_config.py:129 - get_effective_menu_selection - INFO - No menu option found for Emulator_MiyooMini
+1970-05-06 04:54:55,607 - file_based_game_system_config.py:129 - get_effective_menu_selection - INFO - No menu option found for Emulator_MiyooMini
+1970-05-06 04:54:55,611 - file_based_game_system_config.py:129 - get_effective_menu_selection - INFO - No menu option found for Emulator_MiyooMini
+1970-05-06 04:54:57,550 - roms_menu_common.py:312 - run_game - INFO - run_game(/mnt/SDCARD/Roms/GB/Final Fantasy Adventure (USA).zip)
+1970-05-06 04:54:57,570 - miyoo_trim_common.py:57 - write_cmd_to_run - INFO - Writing cmd to run: chmod a+x "/mnt/SDCARD/Emu/GB/../../spruce/scripts/emu/standard_launch.sh";LD_PRELOAD=/customer/lib/libpadsp.so "/mnt/SDCARD/Emu/GB/../../spruce/scripts/emu/standard_launch.sh" "/mnt/SDCARD/Roms/GB/Final Fantasy Adventure (USA).zip"

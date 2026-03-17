@@ -1,0 +1,36 @@
+1970-05-06 04:52:17 - ---------Starting up---------
+1970-05-06 04:52:18 - Performing read-only check
+1970-05-06 04:52:18 - mount line for SD card: /dev/mmcblk0p1 on /mnt/SDCARD type vfat (rw,dirsync,relatime,fmask=0000,dmask=0000,allow_utime=0022,codepage=437,iocharset=utf8,shortname=mixed,tz=UTC,errors=remount-ro)
+1970-05-06 04:52:19 - SD card does not appear to be read only
+1970-05-06 04:52:19 - SD card is not read-only.
+1970-05-06 04:52:19 - Setting cpu to performance
+1970-05-06 04:52:19 - Unpacker: Script started
+1970-05-06 04:52:19 - Unpacker: Starting theme and archive unpacking process
+1970-05-06 04:52:19 - No update file found; hiding Updater app
+1970-05-06 04:52:19 - Starting Real Time message listener on port 50980
+1970-05-06 04:52:19 - Waiting for realtime_message_network_listener to appear...
+1970-05-06 04:52:19 - Launching wpa_supplicant
+1970-05-06 04:52:20 - WiFi turned on
+1970-05-06 04:52:22 - Starting PyUI on MiyooMini
+1970-05-06 04:52:26 - Realtime message network listener detected.
+1970-05-06 04:52:26 - Display image and text /mnt/SDCARD/spruce/imgs/iconfresh.png 35 25 overlays_640x480 archive detected. Unpacking.......... 75
+1970-05-06 04:52:38 - Unpacker: Unpacked and removed: overlays_640x480.7z
+1970-05-06 04:52:38 - Unpacker: Finished running
+1970-05-06 04:52:38 - Launching common startup watchdogs
+1970-05-06 04:52:38 - Auto Resume skipped (no save_active flag)
+1970-05-06 04:52:38 - Setting cpu to ondemand
+1970-05-06 04:52:39 - power_button_watchdog_v2.sh: Started up.
+1970-05-06 04:52:39 - homebutton_watchdog.sh: Started up.
+1970-05-06 04:52:39 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0
+1970-05-06 04:52:39 - No swapfile requested by user settings.
+1970-05-06 04:52:39 - Selected boot action is spruceUI.
+1970-05-06 04:52:39 - Starting main loop
+1970-05-06 04:52:39 - Starting new loop of principal.sh
+1970-05-06 04:52:39 - Setting cpu to ondemand
+1970-05-06 04:52:39 - Real Time message listener is running. Killing it...
+1970-05-06 04:52:41 - rgb led not supported on miyoo mini
+1970-05-06 04:52:41 - rgb led not supported on miyoo mini
+1970-05-06 04:52:41 - Setting cpu to performance
+1970-05-06 04:52:41 - Starting PyUI on MiyooMini
+1970-05-06 04:52:54 - power_button_watchdog_v2.sh: getevent pipe exited, restarting...
+1970-05-06 04:52:55 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0

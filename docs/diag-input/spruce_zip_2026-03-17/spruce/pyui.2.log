@@ -1,0 +1,36 @@
+1970-05-06 04:55:07,284 - mainui.py:209 - main - INFO - Namespace(logDir='/mnt/SDCARD/Saves/spruce', pyUiConfig='/mnt/SDCARD/App/PyUI/py-ui-config.json', device='MIYOO_MINI_PLUS', cfwConfig='/mnt/SDCARD/Saves/spruce/spruce-config.json', msgDisplay=None, msgDisplayTimeMs=None, msgDisplayRealtime=None, msgDisplayRealtimePort='50980', optionListFile=None, optionListTitle=None, buttonListenerMode=None, startupInitOnly=None)
+1970-05-06 04:55:07,293 - time_logger.py:11 - log_timing - INFO - Config initialization completed in 0.008s
+1970-05-06 04:55:07,720 - time_logger.py:11 - log_timing - INFO - Device initialization completed in 0.426s
+1970-05-06 04:55:07,753 - time_logger.py:11 - log_timing - INFO - Theme initialization completed in 0.032s
+1970-05-06 04:55:07,769 - time_logger.py:11 - log_timing - INFO - sdl2.ext.init completed in 0.015s
+1970-05-06 04:55:07,771 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_DisplayMode completed in 0.000s
+1970-05-06 04:55:07,772 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Window completed in 0.000s
+1970-05-06 04:55:07,774 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Renderer completed in 0.001s
+1970-05-06 04:55:08,526 - time_logger.py:11 - log_timing - INFO - sdl2.sdlttf.TTF_Init() completed in 0.751s
+1970-05-06 04:55:08,527 - time_logger.py:11 - log_timing - INFO - sdl2 create render canvas completed in 0.000s
+1970-05-06 04:55:08,529 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_SetRenderTarget completed in 0.000s
+1970-05-06 04:55:08,530 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_SetRenderDrawBlendMode completed in 0.000s
+1970-05-06 04:55:09,290 - time_logger.py:11 - log_timing - INFO - sdl2.ext.init completed in 0.010s
+1970-05-06 04:55:09,291 - time_logger.py:11 - log_timing - INFO - sdl2.SDL_DisplayMode completed in 0.000s
+1970-05-06 04:55:09,293 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Window completed in 0.000s
+1970-05-06 04:55:09,294 - time_logger.py:11 - log_timing - INFO - sdl2.ext.Renderer completed in 0.001s
+1970-05-06 04:55:09,540 - time_logger.py:11 - log_timing - INFO - restore_bg completed in 0.000s
+1970-05-06 04:55:09,545 - time_logger.py:11 - log_timing - INFO - clear completed in 0.004s
+1970-05-06 04:55:09,546 - time_logger.py:11 - log_timing - INFO - Display initialization completed in 1.792s
+1970-05-06 04:55:09,554 - time_logger.py:11 - log_timing - INFO - Display Present completed in 0.007s
+1970-05-06 04:55:09,573 - theme_patcher.py:87 - patch_theme - DEBUG - Theme background size: 640x480, Target size: 640x480
+1970-05-06 04:55:09,589 - realtime_message_network_listener.py:39 - start - INFO - Starting RealtimeMessageNetworkListener on port 50980...
+1970-05-06 04:55:09,590 - realtime_message_network_listener.py:46 - start - INFO - Listening for connections on 0.0.0.0:50980
+1970-05-06 04:55:09,592 - realtime_message_network_listener.py:30 - _write_to_file - INFO - Writing Listening on port 50980 to /mnt/SDCARD/App/PyUI/realtime_message_network_listener.txt
+1970-05-06 04:55:10,507 - realtime_message_network_listener.py:73 - _handle_client - INFO - Client connected from ('127.0.0.1', 35864)
+1970-05-06 04:55:10,509 - realtime_message_network_listener.py:97 - _enqueue_message - INFO - Received Raw Message: {"cmd":"MESSAGE","args":["Finishing up unpacking archives.........."]}
+1970-05-06 04:55:10,511 - realtime_message_network_listener.py:93 - _handle_client - INFO - Client ('127.0.0.1', 35864) disconnected
+1970-05-06 04:55:10,717 - realtime_message_network_listener.py:138 - _handle_ui_message - INFO - Parsed cmd=MESSAGE, args=['Finishing up unpacking archives..........']
+1970-05-06 04:55:10,718 - realtime_message_network_listener.py:226 - _handle_ui_message - INFO - Displaying message: Finishing up unpacking archives..........
+1970-05-06 04:55:10,844 - realtime_message_network_listener.py:73 - _handle_client - INFO - Client connected from ('127.0.0.1', 35866)
+1970-05-06 04:55:10,850 - realtime_message_network_listener.py:97 - _enqueue_message - INFO - Received Raw Message: {"cmd":"EXIT_APP","args":[]}
+1970-05-06 04:55:10,852 - realtime_message_network_listener.py:93 - _handle_client - INFO - Client ('127.0.0.1', 35866) disconnected
+1970-05-06 04:55:11,057 - realtime_message_network_listener.py:138 - _handle_ui_message - INFO - Parsed cmd=EXIT_APP, args=[]
+1970-05-06 04:55:11,058 - realtime_message_network_listener.py:150 - _handle_ui_message - INFO - Received EXIT_APP command, shutting down...
+1970-05-06 04:55:11,267 - realtime_message_network_listener.py:248 - stop - INFO - RealtimeMessageNetworkListener shutting down
+1970-05-06 04:55:11,268 - time_logger.py:11 - log_timing - INFO - Entire Startup initialization completed in 3.983s

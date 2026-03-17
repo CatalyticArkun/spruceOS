@@ -1,0 +1,18 @@
+1970-05-06T04:49:58Z | audio current=TRACE_INITIALIZE requested=TRACE_INITIALIZE source=trace_fsm context=first trace session source=runtime.sh
+1970-05-06T04:49:59Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:04Z | audio current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no audio state recorded this session
+1970-05-06T04:52:05Z | audio current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:17Z | audio current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no audio state persisted from previous session
+1970-05-06T04:52:18Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:52Z | audio current=INCONSISTENT_END requested=INCONSISTENT_END source=trace_fsm context=no audio state recorded this session
+1970-05-06T04:52:53Z | audio current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:53:10Z | audio current=INCONSISTENT_START requested=INCONSISTENT_START source=trace_fsm context=no audio state persisted from previous session
+1970-05-06T04:53:11Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:53:46Z | audio current=UNKNOWN requested=VOL_0 source=sleep_helper.sh context=muted on sleep entry
+1970-05-06T04:53:53Z | audio current=VOL_0 requested=VOL_0 source=sleep_helper.sh context=volume restored on wake
+1970-05-06T04:54:14Z | audio current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:54:30Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:55:25Z | audio current=UNKNOWN requested=VOL_0 source=sleep_helper.sh context=muted on sleep entry
+1970-05-06T04:55:33Z | audio current=VOL_0 requested=VOL_1 source=sleep_helper.sh context=volume restored on wake
+1970-05-06T04:55:40Z | audio current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:56:09Z | audio current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh

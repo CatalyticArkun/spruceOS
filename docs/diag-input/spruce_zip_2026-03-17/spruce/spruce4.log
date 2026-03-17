@@ -1,0 +1,60 @@
+1970-05-06 04:49:57 - ---------Starting up---------
+1970-05-06 04:49:59 - Performing read-only check
+1970-05-06 04:49:59 - mount line for SD card: /dev/mmcblk0p1 on /mnt/SDCARD type vfat (rw,dirsync,relatime,fmask=0000,dmask=0000,allow_utime=0022,codepage=437,iocharset=utf8,shortname=mixed,tz=UTC,errors=remount-ro)
+1970-05-06 04:49:59 - SD card does not appear to be read only
+1970-05-06 04:49:59 - SD card is not read-only.
+1970-05-06 04:49:59 - Setting cpu to performance
+1970-05-06 04:49:59 - overlays_640x480.7z detected in spruce/archives/staging. Moving into place!
+1970-05-06 04:49:59 - Unpacker started silently in background due to first_boot flag
+1970-05-06 04:49:59 - Unpacker: Script started
+1970-05-06 04:49:59 - Unpacker: Starting theme and archive unpacking process
+1970-05-06 04:50:00 - No update file found; hiding Updater app
+1970-05-06 04:50:00 - Starting Real Time message listener on port 50980
+1970-05-06 04:50:00 - Waiting for realtime_message_network_listener to appear...
+1970-05-06 04:50:00 - Launching wpa_supplicant
+1970-05-06 04:50:00 - WiFi turned on
+1970-05-06 04:50:02 - Starting PyUI on MiyooMini
+1970-05-06 04:50:09 - Unpacker: Unpacked and removed: ALEKFULL_NX_ES.7z
+1970-05-06 04:50:19 - Unpacker: Unpacked and removed: ART_BOOK_NEXT.7z
+1970-05-06 04:50:30 - Unpacker: Unpacked and removed: ART_BOOK_OUTLINE.7z
+1970-05-06 04:50:37 - Unpacker: Unpacked and removed: Avocado.7z
+1970-05-06 04:50:45 - Realtime message network listener detected.
+1970-05-06 04:50:45 - Starting firstboot script on MiyooMini
+1970-05-06 04:50:45 - Display image and text /mnt/SDCARD/spruce/imgs/tree_sm_close_crop.png 35 25 Installing spruce 4.1.1 75
+1970-05-06 04:50:46 - Unpacker: Unpacked and removed: Cosy by KyleBing.7z
+1970-05-06 04:50:52 - Preparing SSH keys if necessary
+1970-05-06 04:50:52 - Display image and text /mnt/SDCARD/spruce/imgs/book.png 35 25 Check out the spruce wiki on our GitHub page for tips and FAQs! 75
+1970-05-06 04:50:56 - Unpacker: Unpacked and removed: GREEN.7z
+1970-05-06 04:50:57 - firstboot.sh: /mnt/SDCARD/Roms/PICO8/-=☆ Launch Splore ☆=-.splore already found.
+1970-05-06 04:51:01 - Unpacker: Unpacked and removed: Grape.7z
+1970-05-06 04:51:09 - Unpacker: Unpacked and removed: HeyDW's Blue.7z
+1970-05-06 04:51:16 - Display image and text /mnt/SDCARD/spruce/imgs/smile.png 35 25 Happy gaming.......... 75
+1970-05-06 04:51:17 - Unpacker: Unpacked and removed: M.7z
+1970-05-06 04:51:21 - Unpacker: Unpacked and removed: MINIMAL.7z
+1970-05-06 04:51:22 - Finished firstboot script
+1970-05-06 04:51:22 - Launching common startup watchdogs
+1970-05-06 04:51:22 - Auto Resume skipped (no save_active flag)
+1970-05-06 04:51:22 - Setting cpu to ondemand
+1970-05-06 04:51:23 - homebutton_watchdog.sh: Started up.
+1970-05-06 04:51:23 - power_button_watchdog_v2.sh: Started up.
+1970-05-06 04:51:23 - Selected boot action is spruceUI.
+1970-05-06 04:51:23 - No swapfile requested by user settings.
+1970-05-06 04:51:23 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0
+1970-05-06 04:51:23 - Starting main loop
+1970-05-06 04:51:23 - Starting new loop of principal.sh
+1970-05-06 04:51:23 - Setting cpu to ondemand
+1970-05-06 04:51:23 - Real Time message listener is running. Killing it...
+1970-05-06 04:51:25 - rgb led not supported on miyoo mini
+1970-05-06 04:51:25 - rgb led not supported on miyoo mini
+1970-05-06 04:51:25 - Setting cpu to performance
+1970-05-06 04:51:25 - Starting PyUI on MiyooMini
+1970-05-06 04:51:26 - Unpacker: Unpacked and removed: MinUInspired (logos).7z
+1970-05-06 04:51:39 - Unpacker: Unpacked and removed: OTB.7z
+1970-05-06 04:51:42 - Unpacker: Unpacked and removed: Pico-8.7z
+1970-05-06 04:51:43 - Update Check: Waiting for network connection (attempt 1 of 3)...
+1970-05-06 04:51:54 - Unpacker: Unpacked and removed: SLABS.7z
+1970-05-06 04:51:59 - Unpacker: Unpacked and removed: SPRUCE (simple).7z
+1970-05-06 04:52:03 - Update Check: Waiting for network connection (attempt 2 of 3)...
+1970-05-06 04:52:06 - power_button_watchdog_v2.sh: getevent pipe exited, restarting...
+1970-05-06 04:52:07 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0
+1970-05-06 04:52:08 - Missing device_run_reboot_cmd -- using default of reboot

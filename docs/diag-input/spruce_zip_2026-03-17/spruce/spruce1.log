@@ -1,0 +1,82 @@
+1970-05-06 04:54:29 - ---------Starting up---------
+1970-05-06 04:54:31 - Performing read-only check
+1970-05-06 04:54:31 - mount line for SD card: /dev/mmcblk0p1 on /mnt/SDCARD type vfat (rw,dirsync,relatime,fmask=0000,dmask=0000,allow_utime=0022,codepage=437,iocharset=utf8,shortname=mixed,tz=UTC,errors=remount-ro)
+1970-05-06 04:54:31 - SD card does not appear to be read only
+1970-05-06 04:54:31 - SD card is not read-only.
+1970-05-06 04:54:31 - Setting cpu to performance
+1970-05-06 04:54:31 - Unpacker: Script started
+1970-05-06 04:54:31 - Unpacker: Starting theme and archive unpacking process
+1970-05-06 04:54:31 - No update file found; hiding Updater app
+1970-05-06 04:54:31 - Unpacker: Finished running
+1970-05-06 04:54:31 - Launching common startup watchdogs
+1970-05-06 04:54:31 - Auto Resume skipped (no save_active flag)
+1970-05-06 04:54:31 - Setting cpu to ondemand
+1970-05-06 04:54:31 - power_button_watchdog_v2.sh: Started up.
+1970-05-06 04:54:31 - No swapfile requested by user settings.
+1970-05-06 04:54:31 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0
+1970-05-06 04:54:31 - homebutton_watchdog.sh: Started up.
+1970-05-06 04:54:31 - Selected boot action is spruceUI.
+1970-05-06 04:54:31 - Starting main loop
+1970-05-06 04:54:31 - Starting new loop of principal.sh
+1970-05-06 04:54:31 - Setting cpu to ondemand
+1970-05-06 04:54:32 - Launching wpa_supplicant
+1970-05-06 04:54:32 - WiFi turned on
+1970-05-06 04:54:34 - rgb led not supported on miyoo mini
+1970-05-06 04:54:34 - rgb led not supported on miyoo mini
+1970-05-06 04:54:34 - Setting cpu to performance
+1970-05-06 04:54:35 - Starting PyUI on MiyooMini
+1970-05-06 04:54:51 - Update Check: Waiting for network connection (attempt 1 of 3)...
+1970-05-06 04:54:59 - Starting Real Time message listener on port 50980
+1970-05-06 04:54:59 - Waiting for realtime_message_network_listener to appear...
+1970-05-06 04:54:59 - Starting PyUI on MiyooMini
+1970-05-06 04:55:09 - Realtime message network listener detected.
+1970-05-06 04:55:09 - Finishing up unpacking archives..........
+1970-05-06 04:55:10 - Real Time message listener is running. Killing it...
+1970-05-06 04:55:11 - Update Check: Waiting for network connection (attempt 2 of 3)...
+1970-05-06 04:55:13 - Setting cpu to performance
+1970-05-06 04:55:13 - Running: chmod a+x "/mnt/SDCARD/Emu/GB/../../spruce/scripts/emu/standard_launch.sh";LD_PRELOAD=/customer/lib/libpadsp.so "/mnt/SDCARD/Emu/GB/../../spruce/scripts/emu/standard_launch.sh" "/mnt/SDCARD/Roms/GB/Final Fantasy Adventure (USA).zip"
+1970-05-06 04:55:13 - -----Launching Emulator-----
+1970-05-06 04:55:13 - trying: /mnt/SDCARD/Emu/GB/../../spruce/scripts/emu/standard_launch.sh /mnt/SDCARD/Roms/GB/Final Fantasy Adventure (USA).zip
+1970-05-06 04:55:13 - EMU_NAME is GB, EMU_DIR is /mnt/SDCARD/Emu/GB, GAME is Final Fantasy Adventure (USA).zip, MODE is Smart
+1970-05-06 04:55:13 - Setting CPU mode to Smart
+1970-05-06 04:55:13 - Calling enforceSmartCPU
+1970-05-06 04:55:14 - rgb led not supported on miyoo mini
+1970-05-06 04:55:15 - export LD_LIBRARY_PATH="/mnt/SDCARD/spruce/miyoomini/lib/:/config/lib/:/customer/lib:/mnt/SDCARD/miyoo/lib"
+1970-05-06 04:55:15 - export PATH="/mnt/SDCARD/spruce/miyoomini/bin:/customer/app:/mnt/SDCARD/spruce/bin:/usr/miyoo/bin:/usr/bin:/usr/sbin:/bin:/sbin:/mnt/SDCARD/spruce/bin/python/bin"
+1970-05-06 04:55:15 - Running CMD: HOME="/mnt/SDCARD/RetroArch/" "/mnt/SDCARD/RetroArch/ra32.mini" -v --log-file /mnt/SDCARD/Saves/spruce/retroarch.log -L "/mnt/SDCARD/RetroArch/.retroarch/cores/gambatte_libretro.so" "/mnt/SDCARD/Roms/GB/Final Fantasy Adventure (USA).zip"
+1970-05-06 04:55:23 - Enforcing SMART mode
+1970-05-06 04:55:23 - Setting cpu to ondemand
+1970-05-06 04:55:24 - power_button_watchdog_v2.sh: power_key_down
+1970-05-06 04:55:24 - Power button pressed at 10817724
+1970-05-06 04:55:24 - power_button_watchdog_v2.sh: power_key_up
+1970-05-06 04:55:24 - Power button released at 10817724
+1970-05-06 04:55:24 - Sleep helper starting up...
+1970-05-06 04:55:24 - Entering sleep
+1970-05-06 04:55:25 - Device uses pseudosleep -- starting idle loop
+1970-05-06 04:55:25 - Starting idle timeout countdown: 300s until poweroff if lid remains closed
+1970-05-06 04:55:31 - Power button pressed, exiting pseudosleep
+1970-05-06 04:55:32 - Update Check: Failed to establish network connection after 3 attempts.
+1970-05-06 04:55:35 - power_button_watchdog_v2.sh: power_key_down
+1970-05-06 04:55:35 - Power button pressed during cooldown at 10817735, LAST_POWER_DOWN=10817735
+1970-05-06 04:55:35 - power_button_watchdog_v2.sh: power_key_up
+1970-05-06 04:55:35 - Power button released during cooldown at 10817735
+1970-05-06 04:55:35 - power_button_watchdog_v2.sh: power_key_down
+1970-05-06 04:55:35 - Power button pressed during cooldown at 10817735, LAST_POWER_DOWN=10817735
+1970-05-06 04:55:35 - power_button_watchdog_v2.sh: power_key_up
+1970-05-06 04:55:35 - Power button released during cooldown at 10817735
+1970-05-06 04:55:37 - power_button_watchdog_v2.sh: power_key_down
+1970-05-06 04:55:37 - Power button pressed at 10817737
+1970-05-06 04:55:39 - power_button_watchdog_v2.sh: Powering off due to power button hold.
+1970-05-06 04:55:39 - power_button_watchdog_v2.sh: getevent pipe exited, restarting...
+1970-05-06 04:55:40 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0
+1970-05-06 04:55:40 - power_button_watchdog_v2.sh: getevent pipe exited, restarting...
+1970-05-06 04:55:42 - power_button_watchdog_v2.sh: Monitoring power button events on /dev/input/event0
+1970-05-06 04:55:43 - -----Closing Emulator-----
+1970-05-06 04:55:43 - Starting Real Time message listener on port 50980
+1970-05-06 04:55:43 - Waiting for realtime_message_network_listener to appear...
+1970-05-06 04:55:43 - Starting PyUI on MiyooMini
+1970-05-06 04:55:43 - Launching wpa_supplicant
+1970-05-06 04:55:43 - WiFi turned on
+1970-05-06 04:55:53 - Realtime message network listener detected.
+1970-05-06 04:55:53 - Display image and text /mnt/SDCARD/spruce/imgs/save.png 33 10 Saving and shutting down... Please wait a moment. 60
+1970-05-06 04:55:56 - Real Time message listener is running. Killing it...

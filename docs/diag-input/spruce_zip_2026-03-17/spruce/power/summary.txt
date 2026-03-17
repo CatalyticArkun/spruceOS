@@ -1,0 +1,23 @@
+1970-05-06T04:49:58Z | power current=TRACE_INITIALIZE requested=TRACE_INITIALIZE source=trace_fsm context=first trace session source=runtime.sh
+1970-05-06T04:49:58Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:49:59Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:04Z | power current=RUNNING requested=REBOOT source=save_poweroff.sh context=shutdown triggered
+1970-05-06T04:52:04Z | power current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:52:18Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:52:18Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:52:52Z | power current=RUNNING requested=OFF source=save_poweroff.sh context=shutdown triggered
+1970-05-06T04:52:53Z | power current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:53:11Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:53:11Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:53:46Z | power current=RUNNING requested=SLEEP source=sleep_helper.sh context=entering sleep
+1970-05-06T04:53:53Z | power current=SLEEP requested=RUNNING source=sleep_helper.sh context=woke from sleep
+1970-05-06T04:54:14Z | power current=RUNNING requested=OFF source=save_poweroff.sh context=shutdown triggered
+1970-05-06T04:54:14Z | power current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:54:30Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:54:30Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
+1970-05-06T04:55:24Z | power current=RUNNING requested=SLEEP source=sleep_helper.sh context=entering sleep
+1970-05-06T04:55:32Z | power current=SLEEP requested=RUNNING source=sleep_helper.sh context=woke from sleep
+1970-05-06T04:55:39Z | power current=RUNNING requested=OFF source=save_poweroff.sh context=shutdown triggered
+1970-05-06T04:55:39Z | power current=FSM_FINALIZE requested=FSM_FINALIZE source=trace_fsm context=shutdown sequence completed source=save_poweroff.sh
+1970-05-06T04:56:09Z | power current=BOOTING requested=RUNNING source=runtime.sh context=system startup
+1970-05-06T04:56:09Z | power current=FSM_INIT requested=FSM_INIT source=trace_fsm context=boot session started source=runtime.sh
