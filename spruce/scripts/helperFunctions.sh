@@ -25,13 +25,39 @@ export SSL_CERT_FILE=/mnt/SDCARD/spruce/etc/ca-certificates.crt
 # Detect device and export to any script sourcing helperFunctions
 INFO=$(cat /proc/cpuinfo 2> /dev/null)
 case $INFO in
-    *"sun8i"*) export PLATFORM="A30" ;;
-    *"TG5040"*)	export PLATFORM="SmartPro" ;;
-    *"TG3040"*)	export PLATFORM="Brick"	;;
-    *"TG5050"*)	export PLATFORM="SmartProS"	;;
-    *"0xd05"*) export PLATFORM="Flip" ;;
-    *"0xd04"*) export PLATFORM="Pixel2" ;;
-    *) export PLATFORM="MiyooMini" ;;
+    *sun8i*) export PLATFORM="A30" ;;
+    *TG5040*) export PLATFORM="SmartPro" ;;
+    *TG3040*) export PLATFORM="Brick" ;;
+    *TG5050*) export PLATFORM="SmartProS" ;;
+    *0xd05*) export PLATFORM="Flip" ;;
+    *0xd04*) export PLATFORM="Pixel2" ;;
+    *0xd03*)
+        CMDLINE=$(cat /proc/cmdline)
+
+        case $CMDLINE in
+            *lcd_type=boe*)
+                if grep -qi "RGcubexx" /mnt/vendor/oem/board.ini ; then
+                    export PLATFORM="AnbernicRGCubeXX"
+                else
+                    export PLATFORM="AnbernicRG34XXSP"
+                fi
+                ;;
+            *lcd_type=old*)
+                #TODO handle cube?
+                if strings /mnt/vendor/bin/dmenu.bin 2>/dev/null | grep -q '^RG28xx'; then
+                    export PLATFORM="AnbernicRG28XX"
+                else
+                    export PLATFORM="AnbernicXX640480"
+                fi
+                ;;
+            *)
+                export PLATFORM="AnbernicXX640480"
+                ;;
+        esac
+        ;;
+    *)
+        export PLATFORM="MiyooMini"
+        ;;
 esac
 
 . /mnt/SDCARD/spruce/scripts/platform/$PLATFORM.cfg
