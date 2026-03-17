@@ -1,6 +1,7 @@
 #!/bin/sh
 
 . /mnt/SDCARD/spruce/scripts/helperFunctions.sh
+. /mnt/SDCARD/spruce/scripts/trace.sh
 
 SLEEP=30
 
@@ -108,6 +109,7 @@ while true; do
     [ "$PERCENT" = "Off" ] && sleep $SLEEP && continue
 
     if [ "$CAPACITY" -le "$PERCENT" ]; then
+        system_emit "power" "RUNNING" "LOW_BATTERY" "low_power_warning.sh" "battery ${CAPACITY}% at or below threshold ${PERCENT}%" || true
         vibrate_count=0
         flag_added=false
         while [ "$CAPACITY" -le "$PERCENT" ]; do

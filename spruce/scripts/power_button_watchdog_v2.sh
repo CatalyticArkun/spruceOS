@@ -6,7 +6,6 @@ log_message "power_button_watchdog_v2.sh: Started up."
 
 
 
-
 power_key_up () {
     if [ -e /tmp/powerbtn ]; then
         log_message "Power button released at $(date +%s)"  
@@ -26,14 +25,7 @@ power_key_up () {
         fi
 
         if [ "$was_cancelled" = false ]; then
-            if ! sleep_requests_allowed_now; then
-                system_emit "power" "RUNNING" "SLEEPING" "power_button_watchdog_v2.sh:power_key_up" "sleep request suppressed; lifecycle gate closed"
-                return
-            fi
-            system_emit "power" "RUNNING" "SLEEPING" "power_button_watchdog_v2.sh:power_key_up" "short press requested sleep"
             /mnt/SDCARD/spruce/scripts/sleep_helper.sh
-        else
-            system_emit "power" "RUNNING" "SLEEPING" "power_button_watchdog_v2.sh:power_key_up" "sleep request cancelled by combo input"
         fi
     else
         log_message "Power button released during cooldown at $(date +%s)"  
@@ -54,19 +46,13 @@ power_key_down () {
             sleep "$power_hold_time"
             # Check if the powerbtn file still exists (i.e. button still held) AND NOT cancelled (i.e. no other button pressed)
             if [ -e /tmp/powerbtn ] && [ ! -e /tmp/powerbtn_cancelled ]; then
-                if shutdown_pending_now; then
-                    system_emit "power" "SHUTDOWN_PENDING" "OFF" "power_button_watchdog_v2.sh:power_key_down" "long press duplicate request while shutdown is pending"
-                    rm -f /tmp/powerbtn
-                    return
-                fi
                 log_message "power_button_watchdog_v2.sh: Powering off due to power button hold."
-                system_emit "power" "RUNNING" "OFF" "power_button_watchdog_v2.sh:power_key_down" "long press requested poweroff"
                 vibrate &
                 rm -f /tmp/powerbtn
                 rm -f /tmp/powerbtn_cancelled
                 killall getevent 2>/dev/null
                 sleep 0.1
-                invoke_save_poweroff_singleflight "power_button_watchdog_v2.sh:power_key_down"
+                "$POWER_OFF_SCRIPT"
             fi
         ) &
         power_hold_pid=$!
@@ -75,100 +61,31 @@ power_key_down () {
     fi
 }
 
-watchdog_suppression_active=0
-
-watchdog_suspended_or_not_rearmed() {
-    if command -v power_mode_watchdog_reconcile_after_rearm >/dev/null 2>&1; then
-        power_mode_watchdog_reconcile_after_rearm >/dev/null 2>&1 || true
-    fi
-
-    if command -v power_mode_watchdog_may_handle_input >/dev/null 2>&1; then
-        power_mode_watchdog_may_handle_input && return 1
-        return 0
-    fi
-
-    if [ -f /tmp/power_watchdog_suspended ]; then
-        marker_pid="$(head -n 1 /tmp/power_watchdog_suspended 2>/dev/null | tr -d '[:space:]')"
-        case "$marker_pid" in
-            ''|*[!0-9]*)
-                rm -f /tmp/power_watchdog_suspended
-                return 1
+while true; do
+    log_message "power_button_watchdog_v2.sh: Monitoring power button events on $EVENT_PATH_POWER"
+    getevent -exclusive -pid $$ $EVENT_PATH_POWER | while read line; do
+        now=$(date +%s)
+        case $line in
+            # Power key down
+            *"key $B_POWER 1"*)
+                log_message "power_button_watchdog_v2.sh: power_key_down"
+                if [ $((now - LAST_POWER_DOWN)) -ge 1 ]; then
+                    power_key_down
+                    LAST_POWER_DOWN=$(date +%s)
+                else
+                    log_message "Power button pressed during cooldown at $now, LAST_POWER_DOWN=$LAST_POWER_DOWN"  
+                fi
                 ;;
-        esac
 
-        if kill -0 "$marker_pid" 2>/dev/null; then
-            return 0
-        fi
-
-        rm -f /tmp/power_watchdog_suspended
-    fi
-
-    return 1
-}
-
-reset_power_button_state() {
-    rm -f /tmp/powerbtn /tmp/powerbtn_cancelled
-
-    if [ -n "${power_hold_pid:-}" ]; then
-        kill "$power_hold_pid" 2>/dev/null || true
-        wait "$power_hold_pid" 2>/dev/null || true
-        power_hold_pid=""
-    fi
-}
-
-handle_suppressed_watchdog_window() {
-    if watchdog_suspended_or_not_rearmed; then
-        if [ "${watchdog_suppression_active:-0}" != "1" ]; then
-            reset_power_button_state
-            watchdog_suppression_active=1
-        fi
-        return 0
-    fi
-
-    watchdog_suppression_active=0
-    return 1
-}
-
-run_watchdog_loop() {
-    LAST_POWER_DOWN=0
-    PREV_WAS_POWER=0
-
-    while true; do
-        log_message "power_button_watchdog_v2.sh: Monitoring power button events on $EVENT_PATH_POWER"
-        getevent -exclusive -pid $$ $EVENT_PATH_POWER | while read line; do
-            if handle_suppressed_watchdog_window; then
-                continue
-            fi
-
-            now=$(date +%s)
-            if [ "$PREV_WAS_POWER" -eq 1 ]; then
-                LAST_POWER_DOWN=$now
-                PREV_WAS_POWER=0
-            fi
-
-            case $line in
-                *"key $B_POWER 1"*)
-                    if [ $((now - LAST_POWER_DOWN)) -ge 1 ]; then
-                        log_message "power_button_watchdog_v2.sh: power_key_down"
-                        power_key_down
-                        PREV_WAS_POWER=1
-                    else
-                        system_emit "power" "RUNNING" "RUNNING" "power_button_watchdog_v2.sh:main" "duplicate request suppressed by debounce"
-                    fi
-                    ;;
-                *"key $B_POWER 0"*)
+            # Power key up
+            *"key $B_POWER 0"*)
                     log_message "power_button_watchdog_v2.sh: power_key_up"
                     power_key_up
-                    PREV_WAS_POWER=1
-                    ;;
+                    LAST_POWER_DOWN=$(date +%s)
+                ;;
             esac
-        done
-
-        log_message "power_button_watchdog_v2.sh: getevent pipe exited, restarting..."
-        sleep 1
     done
-}
+    log_message "power_button_watchdog_v2.sh: getevent pipe exited, restarting..."
+    sleep 1
+done
 
-if [ "${POWER_BUTTON_WATCHDOG_TEST_MODE:-0}" != "1" ]; then
-    run_watchdog_loop
-fi

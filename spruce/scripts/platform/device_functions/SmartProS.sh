@@ -76,13 +76,6 @@ enable_or_disable_rgb() {
 set_volume() {
     new_vol="${1:-0}" # default to mute if no value supplied
     SAVE_TO_CONFIG="${2:-true}"   # Optional 2nd arg, defaults to true
-    TRACE_SOURCE="${3:-SmartProS.sh:set_volume}"
-    TRACE_CONTEXT="${4:-set volume to ${new_vol}}"
-    current_volume="$(jq -r '.vol // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
-    case "$current_volume" in
-        ''|*[!0-9]*) current_state="UNKNOWN" ;;
-        *) current_state="VOL_${current_volume}" ;;
-    esac
 
     mkdir -p /tmp/system 2>/dev/null
     echo "$new_vol" > /tmp/system/set_volume 2>/dev/null
@@ -98,8 +91,6 @@ set_volume() {
             fi
         fi
     fi
-
-    system_emit "audio" "$current_state" "VOL_${new_vol}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
 
 }
 
@@ -215,8 +206,14 @@ check_if_fw_needs_update() {
 }
 
 take_screenshot() {
-    close_ppsspp_menu
-    /mnt/SDCARD/spruce/bin64/kmsgrab "$1"
+    screenshot_path="$1"
+    ppsspp_mode="${2:-true}"   # Optional 2nd arg, defaults to true
+
+    if [ "$ppsspp_mode" = true ]; then
+        close_ppsspp_menu
+    fi
+
+    /mnt/SDCARD/spruce/bin64/kmsgrab "$screenshot_path"
 }
 
 init_gpio_SmartProS() {
@@ -368,17 +365,8 @@ device_get_battery_percent() {
 	cat "$BATTERY/capacity"
 }
 
-device_lid_sensor_ready() {
-    # SmartProS has no lid hall sensor.
-    return 1
-}
-
 device_lid_open(){
     # device has no lid so it's always open
-    echo "1"
-}
-
-device_uses_pseudo_sleep() {
     return 1
 }
 
@@ -488,13 +476,6 @@ device_run_thermal_process(){
 
 set_backlight() {
     val="$1"
-    TRACE_SOURCE="${2:-SmartProS.sh:set_backlight}"
-    TRACE_CONTEXT="${3:-set brightness to ${val}}"
-    current_backlight_value="$(jq -r '.backlight // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
-    case "$current_backlight_value" in
-        ''|*[!0-9]*) current_state="UNKNOWN" ;;
-        *) current_state="BL_${current_backlight_value}" ;;
-    esac
 
     # Clamp input to 1–10
     [ "$val" -lt 1 ] && val=1
@@ -509,7 +490,7 @@ set_backlight() {
     # update device system json
     tmp=$(mktemp)
     jq ".backlight = $val" "$SYSTEM_JSON" > "$tmp" && mv "$tmp" "$SYSTEM_JSON"
-    system_emit "brightness" "$current_state" "BL_${val}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
+    [ -x /mnt/SDCARD/spruce/scripts/system-emit ] && /mnt/SDCARD/spruce/scripts/system-emit brightness UNKNOWN "BL_${val}" SmartProS.sh/set_backlight 2>/dev/null || true
 }
 
 
@@ -517,13 +498,4 @@ device_system_handles_sdcard_unmount() {
     # return 0 = true
     # return non-zero = false
     return 1 # SmartProS leaves dirty bit set?
-}
-
-
-device_power_trace_capabilities() {
-    echo "sleep_signal=kernel_suspend wake_source=unknown lid_sensor=none rtc_alarm=available device_uses_pseudo_sleep=false"
-}
-
-device_power_trace_notes() {
-    echo "SmartProS uses /sys/power/state mem suspend with rtc wakealarm; wake fallback can be power button handling when timer wake is not detected"
 }

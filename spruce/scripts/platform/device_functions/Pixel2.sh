@@ -58,10 +58,21 @@ set_loading_screen() {
     /mnt/SDCARD/spruce/pixel2/bin/awww img /mnt/SDCARD/Themes/loading.png --transition-type none --no-resize
 }
 
+disable_swap() {
+    swap_list=$(swapon -s)
+
+    if [ -n "$swap_list" ]; then
+        swapoff -a
+    fi
+}
+
 device_init() {
     touch /mnt/SDCARD/spruce/pixel2/bin/MainUI
     mount --bind /mnt/SDCARD/spruce/pixel2/bin/python /mnt/SDCARD/spruce/pixel2/bin/MainUI
     sync_volume_level
+
+    disable_swap
+    /mnt/SDCARD/spruce/scripts/enable_zram.sh &
 
     # Loading screen daemon
     /mnt/SDCARD/spruce/pixel2/bin/awww-daemon --no-cache & set_loading_screen
@@ -120,14 +131,6 @@ get_volume_level() {
 set_volume() {
     VOL_VAL="${1:-0}" # default to mute if no value supplied
     SAVE_TO_CONFIG="${2:-true}" # Optional 2nd arg, defaults to true
-    TRACE_SOURCE="${3:-Pixel2.sh:set_volume}"
-    TRACE_CONTEXT="${4:-set volume to ${VOL_VAL}}"
-
-    current_volume="$(jq -r '.vol // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
-    case "$current_volume" in
-        ''|*[!0-9]*) current_state="UNKNOWN" ;;
-        *) current_state="VOL_${current_volume}" ;;
-    esac
 
     # Set volume
     SYSTEM_VOL=$(map_mainui_volume_to_system_value "$VOL_VAL")
@@ -137,8 +140,6 @@ set_volume() {
         # Update Config file
         save_volume_to_config_file "$VOL_VAL"
     fi
-
-    system_emit "audio" "$current_state" "VOL_${VOL_VAL}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
 }
 
 volume_down() {
@@ -209,8 +210,13 @@ device_lid_open(){
 }
 
 take_screenshot() {
-    close_ppsspp_menu
     screenshot_path="$1"
+    ppsspp_mode="${2:-true}"   # Optional 2nd arg, defaults to true
+
+    if [ "$ppsspp_mode" = true ]; then
+        close_ppsspp_menu
+    fi
+
     /mnt/SDCARD/spruce/pixel2/bin/grim -o DSI-1 "${screenshot_path}"
 }
 
@@ -265,18 +271,11 @@ map_mainui_brightness_to_system_value() {
 
 set_backlight() {
     new_bl="$1"
-    TRACE_SOURCE="${2:-Pixel2.sh:set_backlight}"
-    TRACE_CONTEXT="${3:-set brightness to ${new_bl}}"
-    current_backlight_value="$(jq -r '.backlight // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
-    case "$current_backlight_value" in
-        ''|*[!0-9]*) current_state="UNKNOWN" ;;
-        *) current_state="BL_${current_backlight_value}" ;;
-    esac
     sys_bl=$(map_mainui_brightness_to_system_value "$new_bl")
     if (( $new_bl >= 0 )) && (( $new_bl <= 10 )); then
         echo $sys_bl > $DEVICE_BRIGHTNESS_PATH
         jq ".backlight = $new_bl" "$SYSTEM_JSON" > "$SYSTEM_JSON.tmp" && mv "$SYSTEM_JSON.tmp" "$SYSTEM_JSON"
-        system_emit "brightness" "$current_state" "BL_${new_bl}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
+        [ -x /mnt/SDCARD/spruce/scripts/system-emit ] && /mnt/SDCARD/spruce/scripts/system-emit brightness UNKNOWN "BL_${new_bl}" Pixel2.sh/set_backlight 2>/dev/null || true
     fi
 }
 
@@ -366,7 +365,7 @@ close_ppsspp_menu() {
 }
 
 set_default_ra_hotkeys() {
-    RA_FILE="/mnt/SDCARD/RetroArch/platform/retroarch-Flip.cfg"
+    RA_FILE="/mnt/SDCARD/RetroArch/platform/retroarch-Pixel2.cfg"
 
     log_message "Resetting RetroArch hotkeys to Spruce defaults."
 
@@ -377,16 +376,13 @@ set_default_ra_hotkeys() {
         "input_fps_toggle_btn = \"3\"" \
         "input_load_state_btn = \"9\"" \
         "input_menu_toggle = \"escape\"" \
-        "input_menu_toggle_btn = \"nul\"" \
+        "input_menu_toggle_btn = \"2\"" \
         "input_quit_gamepad_combo = \"4\"" \
         "input_save_state_btn = \"10\"" \
         "input_screenshot_btn = \"0\"" \
         "input_shader_toggle_btn = \"11\"" \
         "input_state_slot_decrease_btn = \"13\"" \
-        "input_state_slot_increase_btn = \"14\"" \
-        "input_toggle_slowmotion_axis = \"+4\"" \
-        "input_toggle_fast_forward_axis = \"+5\""
-
+        "input_state_slot_increase_btn = \"14\""
 }
 
 device_system_handles_sdcard_unmount() {

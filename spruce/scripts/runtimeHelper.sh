@@ -321,7 +321,7 @@ unstage_archive() {
     ARC_DIR="/mnt/SDCARD/spruce/archives"
     STAGED_ARCHIVE="$1"
     TARGET="$2"
-    if [ -z "$TARGET" ] || [ "$TARGET" != "preCmd" ]; then TARGET="preMenu"; fi
+    if [ -z "$TARGET_FOLDER" ] || [ "$TARGET_FOLDER" != "preCmd" ]; then TARGET="preMenu"; fi
 
     if [ -f "$ARC_DIR/staging/$STAGED_ARCHIVE" ]; then
         log_message "$STAGED_ARCHIVE detected in spruce/archives/staging. Moving into place!"
@@ -369,36 +369,7 @@ set_volume_to_config() {
     [ -n "$vol" ] && set_volume "$vol"
 }
 
-auto_resume_should_emit_wake_trace() {
-    if ! command -v power_mode_get >/dev/null 2>&1; then
-        return 1
-    fi
-
-    [ "$(power_mode_get)" = "waking" ]
-}
-
 auto_resume_game() {
-    if [ -f "${FLAGS_DIR}/lastgame.lock" ]; then
-        log_message "runtimeHelper.sh:auto_resume_game: lastgame.lock present before resume"
-    else
-        log_message "runtimeHelper.sh:auto_resume_game: lastgame.lock missing before resume"
-        flag_remove "save_active"
-        log_message "runtimeHelper.sh:auto_resume_game: clearing save_active because no resume command is available"
-        return 0
-    fi
-
-    if auto_resume_should_emit_wake_trace; then
-        system_emit "power" "WAKING" "RUNNING" "runtimeHelper.sh:auto_resume_game" "save_active flag triggered autoresume during waking state"
-    fi
-
-    if shutdown_pending_now; then
-        log_message "runtimeHelper.sh:auto_resume_game: suppressing autoresume dispatch because shutdown is pending"
-        if command -v system_emit >/dev/null 2>&1; then
-            system_emit "power" "RUNNING" "RUNNING" "runtimeHelper.sh:auto_resume_game" "autoresume dispatch suppressed because shutdown is pending save_active=true" || true
-        fi
-        return 0
-    fi
-
     log_message "save_active flag detected. Autoresuming game."
 
     # Ensure device is properly initialized (volume, wifi, etc) before launching auto-resume
@@ -416,22 +387,10 @@ auto_resume_game() {
     nice -n -20 /tmp/cmd_to_run.sh &> /dev/null
     rm -f /tmp/cmd_to_run.sh # remove tmp command file after game exit; otherwise the game will load again in principal.sh later
     log_message "Auto Resume executed"
-    if auto_resume_should_emit_wake_trace; then
-        system_emit "power" "RUNNING" "RUNNING" "runtimeHelper.sh:auto_resume_game" "autoresume command finished during waking state save_active=true"
-    fi
 }
 
 set_up_boot_action() {
     BOOT_ACTION="$(get_config_value '.menuOptions."System Settings".bootTo.selected' "spruceUI")"
-
-    if shutdown_pending_now; then
-        log_message "runtimeHelper.sh:set_up_boot_action: skipping boot-action dispatch because shutdown is pending"
-        if command -v system_emit >/dev/null 2>&1; then
-            system_emit "power" "RUNNING" "RUNNING" "runtimeHelper.sh:set_up_boot_action" "boot-action dispatch suppressed because shutdown is pending" || true
-        fi
-        return 0
-    fi
-
     if ! flag_check "save_active"; then
         log_message "Selected boot action is $BOOT_ACTION."
         case "$BOOT_ACTION" in

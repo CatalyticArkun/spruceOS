@@ -18,6 +18,11 @@ BRIGHTNESS_TRACE_ENABLED="${BRIGHTNESS_TRACE_ENABLED:-1}"
 TRACE_GATE_DIR="${TRACE_GATE_DIR:-/tmp/spruce_trace_gates}"
 TRACE_STATE_FLUSH_INTERVAL="${TRACE_STATE_FLUSH_INTERVAL:-20}"
 TRACE_TRIM_INTERVAL="${TRACE_TRIM_INTERVAL:-20}"
+TRACE_FSM_DIR="${TRACE_FSM_DIR:-$TRACE_DIR/fsm}"
+# Maximum magnitude of a single audio/brightness step before it is flagged
+# as a large jump.  Set to 0 to disable the check for that subsystem.
+AUDIO_LARGE_JUMP_THRESHOLD="${AUDIO_LARGE_JUMP_THRESHOLD:-5}"
+BRIGHTNESS_LARGE_JUMP_THRESHOLD="${BRIGHTNESS_LARGE_JUMP_THRESHOLD:-3}"
 
 trace_state_loaded=0
 trace_dirs_ready=0
@@ -239,6 +244,445 @@ trace_build_summary_line() {
         "$ts_wall" "$subsystem" "$current_state" "$requested_state" "$source_ref" "$context"
 }
 
+# ---------------------------------------------------------------------------
+# FSM — per-subsystem state machine checks
+# ---------------------------------------------------------------------------
+
+# Return the path of the persisted last-state file for a subsystem.
+trace_fsm_state_file() {
+    printf '%s/%s.state\n' "$TRACE_FSM_DIR" "$1"
+}
+
+# Read the last known resulting state for a subsystem (empty string if unknown).
+trace_fsm_get_last_state() {
+    _fsm_file="$(trace_fsm_state_file "$1")"
+    if [ -r "$_fsm_file" ]; then
+        cat "$_fsm_file" 2>/dev/null
+    fi
+}
+
+# Persist the new resulting state for a subsystem.
+trace_fsm_set_last_state() {
+    _fsm_file="$(trace_fsm_state_file "$1")"
+    mkdir -p "$TRACE_FSM_DIR" 2>/dev/null
+    printf '%s\n' "$2" > "$_fsm_file"
+}
+
+# Return 0 if from_state → to_state is a valid transition for subsystem.
+# UNKNOWN on either side of the arrow is always accepted (insufficient info).
+trace_fsm_valid_transition() {
+    _fsm_sub="$1"
+    _fsm_from="$2"
+    _fsm_to="$3"
+
+    # Can't validate if either side is unknown / empty
+    case "$_fsm_from" in ''|UNKNOWN) return 0 ;; esac
+    case "$_fsm_to"   in ''|UNKNOWN) return 0 ;; esac
+
+    case "$_fsm_sub" in
+        power)
+            case "$_fsm_from" in
+                BOOTING)
+                    case "$_fsm_to" in RUNNING) return 0 ;; esac ;;
+                RUNNING)
+                    case "$_fsm_to" in SLEEP|OFF|REBOOT|LOW_BATTERY) return 0 ;; esac ;;
+                SLEEP)
+                    case "$_fsm_to" in RUNNING|OFF) return 0 ;; esac ;;
+                LOW_BATTERY)
+                    case "$_fsm_to" in RUNNING|OFF) return 0 ;; esac ;;
+                OFF|REBOOT)
+                    # terminal — nothing valid onward
+                    return 1 ;;
+                *)
+                    # unrecognised state: allow to avoid false positives
+                    return 0 ;;
+            esac
+            return 1
+            ;;
+        networking)
+            case "$_fsm_from" in
+                DISABLED)
+                    case "$_fsm_to" in ENABLED) return 0 ;; esac ;;
+                ENABLED)
+                    case "$_fsm_to" in DISABLED|CONNECTED) return 0 ;; esac ;;
+                CONNECTED)
+                    case "$_fsm_to" in DISABLED|ENABLED) return 0 ;; esac ;;
+                *)
+                    return 0 ;;
+            esac
+            return 1
+            ;;
+        audio)
+            # Any VOL_N → VOL_M transition is valid
+            case "$_fsm_to" in VOL_*) return 0 ;; esac
+            return 1
+            ;;
+        brightness)
+            # Any BL_N → BL_M transition is valid
+            case "$_fsm_to" in BL_*) return 0 ;; esac
+            return 1
+            ;;
+        *)
+            # Unknown subsystem — don't flag it
+            return 0
+            ;;
+    esac
+}
+
+# Emit a dedicated inconsistency event into the same subsystem files.
+# This is fire-and-forget; errors are suppressed so callers are never blocked.
+trace_fsm_emit_inconsistency() {
+    _incon_sub="$1"
+    _incon_reason="$2"
+    _incon_claimed_current="$3"
+    _incon_requested="$4"
+    _incon_source="$5"
+    _incon_orig_context="$6"
+
+    _incon_seq="$(trace_next_seq)"
+    _incon_ts_mono="$(trace_monotonic_ts)"
+    _incon_ts_wall="$(trace_wall_ts)"
+    _incon_boot="$(trace_boot_id)"
+    _incon_plat="${PLATFORM:-unknown}"
+    _incon_build="$(trace_build)"
+
+    _incon_context="FSM_INCONSISTENCY reason=${_incon_reason} claimed_current=${_incon_claimed_current} requested=${_incon_requested} orig_source=${_incon_source} orig_context=${_incon_orig_context}"
+
+    _incon_json="$(trace_build_json_line \
+        "$_incon_seq" "$_incon_sub" "INCONSISTENT" "INCONSISTENT" \
+        "trace_fsm" \
+        "$(trace_escape_json "$_incon_context")" \
+        "$_incon_ts_mono" "$_incon_ts_wall" \
+        "$_incon_boot" "$_incon_plat" "$_incon_build")"
+
+    _incon_summary="$(trace_build_summary_line \
+        "$_incon_ts_wall" "$_incon_sub" "INCONSISTENT" "INCONSISTENT" \
+        "trace_fsm" "$_incon_context")"
+
+    trace_emit_core \
+        "$TRACE_EVENTS_FILE" "$TRACE_SUMMARY_FILE" \
+        "$TRACE_MAX_EVENTS" "$TRACE_MAX_SUMMARY_LINES" \
+        "$_incon_json" "$_incon_summary" 2>/dev/null || true
+    trace_emit_core \
+        "$(trace_subsystem_events_file "$_incon_sub")" \
+        "$(trace_subsystem_summary_file "$_incon_sub")" \
+        "$TRACE_MAX_EVENTS" "$TRACE_MAX_SUMMARY_LINES" \
+        "$_incon_json" "$_incon_summary" 2>/dev/null || true
+}
+
+# Run both FSM checks and emit an inconsistency event if either fails.
+# Never returns non-zero — the caller's execution must not be affected.
+trace_fsm_check() {
+    _fsmck_sub="$1"
+    _fsmck_current="$2"
+    _fsmck_requested="$3"
+    _fsmck_source="$4"
+    _fsmck_context="$5"
+
+    # Check 1: continuity — does claimed current_state match last recorded state?
+    _fsmck_last="$(trace_fsm_get_last_state "$_fsmck_sub")"
+    if [ -n "$_fsmck_last" ] && \
+       [ "$_fsmck_last" != "UNKNOWN" ] && \
+       [ "$_fsmck_current" != "UNKNOWN" ] && \
+       [ "$_fsmck_current" != "$_fsmck_last" ]; then
+        trace_fsm_emit_inconsistency \
+            "$_fsmck_sub" \
+            "continuity:expected=${_fsmck_last}" \
+            "$_fsmck_current" "$_fsmck_requested" \
+            "$_fsmck_source" "$_fsmck_context" || true
+    fi
+
+    # Check 2: validity — is current_state → requested_state in the allowed set?
+    if ! trace_fsm_valid_transition "$_fsmck_sub" "$_fsmck_current" "$_fsmck_requested"; then
+        trace_fsm_emit_inconsistency \
+            "$_fsmck_sub" \
+            "invalid_transition:${_fsmck_current}->${_fsmck_requested}" \
+            "$_fsmck_current" "$_fsmck_requested" \
+            "$_fsmck_source" "$_fsmck_context" || true
+    fi
+
+    # Check 3: large ordinal jump (audio and brightness only)
+    case "$_fsmck_sub" in
+        audio)
+            trace_fsm_check_level_jump \
+                "$_fsmck_sub" "$_fsmck_current" "$_fsmck_requested" \
+                "$_fsmck_source" "$_fsmck_context" \
+                "$AUDIO_LARGE_JUMP_THRESHOLD" || true
+            ;;
+        brightness)
+            trace_fsm_check_level_jump \
+                "$_fsmck_sub" "$_fsmck_current" "$_fsmck_requested" \
+                "$_fsmck_source" "$_fsmck_context" \
+                "$BRIGHTNESS_LARGE_JUMP_THRESHOLD" || true
+            ;;
+    esac
+
+    return 0
+}
+
+# Emit a lifecycle marker (boot/shutdown boundary) to the main trace files
+# and to a dedicated lifecycle log for easy session-boundary reconstruction.
+# Never returns non-zero.
+trace_fsm_emit_lifecycle() {
+    _lc_event="$1"    # e.g. FSM_INIT, FSM_FINALIZE, INCONSISTENT_START, INCONSISTENT_END
+    _lc_context="$2"
+    _lc_sub="${3:-power}"
+
+    _lc_seq="$(trace_next_seq)"
+    _lc_ts_mono="$(trace_monotonic_ts)"
+    _lc_ts_wall="$(trace_wall_ts)"
+    _lc_boot="$(trace_boot_id)"
+    _lc_plat="${PLATFORM:-unknown}"
+    _lc_build="$(trace_build)"
+
+    _lc_json="$(trace_build_json_line \
+        "$_lc_seq" "$_lc_sub" "$_lc_event" "$_lc_event" \
+        "trace_fsm" \
+        "$(trace_escape_json "$_lc_context")" \
+        "$_lc_ts_mono" "$_lc_ts_wall" \
+        "$_lc_boot" "$_lc_plat" "$_lc_build")"
+    _lc_summary="$(trace_build_summary_line \
+        "$_lc_ts_wall" "$_lc_sub" "$_lc_event" "$_lc_event" \
+        "trace_fsm" "$_lc_context")"
+
+    trace_ensure_dirs
+    mkdir -p "$TRACE_FSM_DIR" 2>/dev/null
+
+    trace_emit_core \
+        "$TRACE_EVENTS_FILE" "$TRACE_SUMMARY_FILE" \
+        "$TRACE_MAX_EVENTS" "$TRACE_MAX_SUMMARY_LINES" \
+        "$_lc_json" "$_lc_summary" 2>/dev/null || true
+    trace_emit_core \
+        "$(trace_subsystem_events_file "$_lc_sub")" \
+        "$(trace_subsystem_summary_file "$_lc_sub")" \
+        "$TRACE_MAX_EVENTS" "$TRACE_MAX_SUMMARY_LINES" \
+        "$_lc_json" "$_lc_summary" 2>/dev/null || true
+    # dedicated lifecycle file — one line per session boundary, kept small
+    printf '%s\n' "$_lc_summary" >> "$TRACE_FSM_DIR/lifecycle.txt" 2>/dev/null || true
+}
+
+# Called once during system startup (runtime.sh).
+# 1. Inspects the persisted power state from the previous session:
+#    - If it is not OFF/REBOOT/empty, the previous session ended uncleanly;
+#      emit INCONSISTENT_END to record that.
+# 2. Clears all FSM state files so the new session starts fresh.
+# 3. Seeds power state as BOOTING and emits BOOTING→RUNNING + FSM_INIT.
+# Never returns non-zero.
+trace_fsm_boot_init() {
+    _bi_source="${1:-runtime.sh}"
+
+    trace_ensure_dirs
+    mkdir -p "$TRACE_FSM_DIR" 2>/dev/null
+
+    # -----------------------------------------------------------------------
+    # TRACE_INITIALIZE — fires once, on the very first boot or after a full
+    # trace wipe.  Detected by the absence of both:
+    #   1. any persisted FSM state file (no prior session), AND
+    #   2. any existing trace events file (no prior events at all).
+    # Emitted to all subsystems before any other lifecycle event so it
+    # appears as the first entry in every subsystem's trace log.
+    # -----------------------------------------------------------------------
+    _bi_any_state="$(ls "$TRACE_FSM_DIR"/*.state 2>/dev/null | head -n1)"
+    if [ -z "$_bi_any_state" ] && [ ! -s "$TRACE_EVENTS_FILE" ]; then
+        for _bi_init_sub in power networking audio brightness; do
+            trace_fsm_emit_lifecycle \
+                "TRACE_INITIALIZE" \
+                "first trace session source=${_bi_source}" \
+                "$_bi_init_sub" || true
+        done
+    fi
+
+    # -----------------------------------------------------------------------
+    # Check previous session end-state for each subsystem that has a defined
+    # terminal state, before wiping the state files.
+    # -----------------------------------------------------------------------
+
+    # power: must have ended in OFF or REBOOT
+    _bi_prev_power="$(trace_fsm_get_last_state power)"
+    case "${_bi_prev_power:-}" in
+        ''|OFF|REBOOT)
+            ;; # clean end or first-ever boot
+        *)
+            trace_fsm_emit_lifecycle \
+                "INCONSISTENT_END" \
+                "previous session ended without OFF/REBOOT; last_state=${_bi_prev_power}" \
+                "power" || true
+            ;;
+    esac
+
+    # networking: must have ended in DISABLED (WiFi torn down during shutdown)
+    _bi_prev_net="$(trace_fsm_get_last_state networking)"
+    case "${_bi_prev_net:-}" in
+        ''|DISABLED)
+            ;; # expected or first-ever boot
+        *)
+            trace_fsm_emit_lifecycle \
+                "INCONSISTENT_END" \
+                "previous session ended without DISABLED; last_state=${_bi_prev_net}" \
+                "networking" || true
+            ;;
+    esac
+
+    # audio: no required terminal state — emit INCONSISTENT_START if last
+    # recorded state is entirely absent after a non-first boot (power was
+    # previously recorded, i.e. this isn't the very first ever run).
+    # For audio and brightness we only flag a gap, not a wrong terminal state.
+    _bi_prev_audio="$(trace_fsm_get_last_state audio)"
+    if [ -n "${_bi_prev_power:-}" ] && [ -z "${_bi_prev_audio:-}" ]; then
+        trace_fsm_emit_lifecycle \
+            "INCONSISTENT_START" \
+            "no audio state persisted from previous session" \
+            "audio" || true
+    fi
+
+    _bi_prev_brightness="$(trace_fsm_get_last_state brightness)"
+    if [ -n "${_bi_prev_power:-}" ] && [ -z "${_bi_prev_brightness:-}" ]; then
+        trace_fsm_emit_lifecycle \
+            "INCONSISTENT_START" \
+            "no brightness state persisted from previous session" \
+            "brightness" || true
+    fi
+
+    # -----------------------------------------------------------------------
+    # Reset all subsystem state files — fresh session
+    # -----------------------------------------------------------------------
+    rm -f "$TRACE_FSM_DIR"/*.state 2>/dev/null || true
+
+    # -----------------------------------------------------------------------
+    # Seed power FSM: BOOTING → RUNNING (runs through normal FSM path)
+    # -----------------------------------------------------------------------
+    trace_fsm_set_last_state "power" "BOOTING" || true
+    trace_write_system_emit "power" "BOOTING" "RUNNING" "$_bi_source" "system startup" || true
+
+    # -----------------------------------------------------------------------
+    # Emit FSM_INIT lifecycle marker for every subsystem
+    # -----------------------------------------------------------------------
+    for _bi_sub in power networking audio brightness; do
+        trace_fsm_emit_lifecycle \
+            "FSM_INIT" \
+            "boot session started source=${_bi_source}" \
+            "$_bi_sub" || true
+    done
+
+    return 0
+}
+
+# Called once during shutdown (save_poweroff.sh), after the power-state emit
+# and before stage 2 takes over.
+# 1. Validates that the power FSM is now in OFF or REBOOT (i.e. the emit
+#    actually happened).  If not, records INCONSISTENT_END.
+# 2. Writes FSM_FINALIZE to close the session cleanly.
+# Never returns non-zero.
+trace_fsm_shutdown_finalize() {
+    _sf_source="${1:-save_poweroff.sh}"
+
+    # -----------------------------------------------------------------------
+    # Validate terminal states for subsystems that require them
+    # -----------------------------------------------------------------------
+
+    # power: must be OFF or REBOOT
+    _sf_power="$(trace_fsm_get_last_state power)"
+    case "${_sf_power:-}" in
+        OFF|REBOOT)
+            ;; # expected
+        *)
+            trace_fsm_emit_lifecycle \
+                "INCONSISTENT_END" \
+                "shutdown finalised without OFF/REBOOT; last_state=${_sf_power}" \
+                "power" || true
+            ;;
+    esac
+
+    # networking: must be DISABLED (torn down before unmount)
+    _sf_net="$(trace_fsm_get_last_state networking)"
+    case "${_sf_net:-}" in
+        ''|DISABLED)
+            ;; # expected or never emitted
+        *)
+            trace_fsm_emit_lifecycle \
+                "INCONSISTENT_END" \
+                "shutdown finalised without DISABLED; last_state=${_sf_net}" \
+                "networking" || true
+            ;;
+    esac
+
+    # audio: no required terminal state — absence of any recorded state
+    # after a session that did reach RUNNING is worth flagging
+    _sf_audio="$(trace_fsm_get_last_state audio)"
+    if [ "${_sf_power:-}" = "OFF" ] || [ "${_sf_power:-}" = "REBOOT" ]; then
+        if [ -z "${_sf_audio:-}" ]; then
+            trace_fsm_emit_lifecycle \
+                "INCONSISTENT_END" \
+                "no audio state recorded this session" \
+                "audio" || true
+        fi
+
+        _sf_brightness="$(trace_fsm_get_last_state brightness)"
+        if [ -z "${_sf_brightness:-}" ]; then
+            trace_fsm_emit_lifecycle \
+                "INCONSISTENT_END" \
+                "no brightness state recorded this session" \
+                "brightness" || true
+        fi
+    fi
+
+    # -----------------------------------------------------------------------
+    # FSM_FINALIZE lifecycle marker for every subsystem
+    # -----------------------------------------------------------------------
+    for _sf_sub in power networking audio brightness; do
+        trace_fsm_emit_lifecycle \
+            "FSM_FINALIZE" \
+            "shutdown sequence completed source=${_sf_source}" \
+            "$_sf_sub" || true
+    done
+
+    return 0
+}
+
+# Extract the trailing integer from a state name such as VOL_12 or BL_3.
+# Prints the number, or nothing if the state has no numeric suffix.
+trace_fsm_extract_level() {
+    printf '%s\n' "$1" | sed 's/^[^_]*_//; /^[0-9][0-9]*$/!d'
+}
+
+# Check whether the transition from->to represents a large jump for ordinal
+# subsystems (audio, brightness).  Emits an inconsistency event if the
+# absolute delta exceeds the configured threshold.  Never returns non-zero.
+trace_fsm_check_level_jump() {
+    _lj_sub="$1"
+    _lj_from="$2"
+    _lj_to="$3"
+    _lj_source="$4"
+    _lj_context="$5"
+    _lj_threshold="$6"
+
+    # Threshold of 0 means the check is disabled
+    case "${_lj_threshold:-0}" in
+        ''|0|*[!0-9]*) return 0 ;;
+    esac
+
+    _lj_from_n="$(trace_fsm_extract_level "$_lj_from")"
+    _lj_to_n="$(trace_fsm_extract_level "$_lj_to")"
+
+    # Only meaningful when both states carry a numeric level
+    [ -n "$_lj_from_n" ] && [ -n "$_lj_to_n" ] || return 0
+
+    _lj_delta=$(( _lj_to_n - _lj_from_n ))
+    [ "$_lj_delta" -lt 0 ] && _lj_delta=$(( -_lj_delta ))
+
+    if [ "$_lj_delta" -gt "$_lj_threshold" ]; then
+        trace_fsm_emit_inconsistency \
+            "$_lj_sub" \
+            "large_jump:delta=${_lj_delta},threshold=${_lj_threshold},from=${_lj_from},to=${_lj_to}" \
+            "$_lj_from" "$_lj_to" \
+            "$_lj_source" "$_lj_context" || true
+    fi
+
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+
 trace_write_system_emit() {
     subsystem="$(trace_normalize_subsystem "$1")"
     current_state="${2:-UNKNOWN}"
@@ -251,6 +695,10 @@ trace_write_system_emit() {
     [ -n "$source_ref" ] || source_ref="unknown"
 
     trace_gate_enabled "$subsystem" || return 0
+
+    # FSM check: run before the normal emit so any inconsistency event gets a
+    # lower sequence number and appears just before the transition in the log.
+    trace_fsm_check "$subsystem" "$current_state" "$requested_state" "$source_ref" "$context" || true
 
     trace_next_seq >/dev/null
     seq="$trace_seq"
@@ -265,6 +713,9 @@ trace_write_system_emit() {
 
     trace_emit_core "$TRACE_EVENTS_FILE" "$TRACE_SUMMARY_FILE" "$TRACE_MAX_EVENTS" "$TRACE_MAX_SUMMARY_LINES" "$json_line" "$summary_line"
     trace_emit_core "$(trace_subsystem_events_file "$subsystem")" "$(trace_subsystem_summary_file "$subsystem")" "$TRACE_MAX_EVENTS" "$TRACE_MAX_SUMMARY_LINES" "$json_line" "$summary_line"
+
+    # Persist the new state so the next emit can check continuity.
+    trace_fsm_set_last_state "$subsystem" "$requested_state" || true
 }
 
 system_emit() {

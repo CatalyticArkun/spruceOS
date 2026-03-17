@@ -98,20 +98,11 @@ get_current_volume() {
 set_volume() {
     VOLUME_LV="${1:-0}"
     SAVE_TO_CONFIG="${2:-true}"
-    TRACE_SOURCE="${3:-A30.sh:set_volume}"
-    TRACE_CONTEXT="${4:-set volume to ${VOLUME_LV}}"
 
     [ "$VOLUME_LV" -lt 0 ] && VOLUME_LV=0
     [ "$VOLUME_LV" -gt 20 ] && VOLUME_LV=20
 
-    current_volume="$(jq -r '.vol // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
-    case "$current_volume" in
-        ''|*[!0-9]*) current_state="UNKNOWN" ;;
-        *) current_state="VOL_${current_volume}" ;;
-    esac
-
     _set_volume "$VOLUME_LV" "$SAVE_TO_CONFIG"
-    system_emit "audio" "$current_state" "VOL_${VOLUME_LV}" "$TRACE_SOURCE" "$TRACE_CONTEXT"
 }
 
 run_mixer_watchdog() {
@@ -338,7 +329,7 @@ set_default_ra_hotkeys() {
         "input_fps_toggle = \"alt\"" \
         "input_load_state = \"tab\"" \
         "input_menu_toggle = \"shift\"" \
-        "input_menu_toggle_btn = \"9\"" \
+        "input_menu_toggle_btn = \"nul\"" \
         "input_quit_gamepad_combo = \"0\"" \
         "input_save_state = \"backspace\"" \
         "input_screenshot = \"space\"" \
@@ -410,10 +401,4 @@ device_system_handles_sdcard_unmount() {
     return 1 # A30 leaves dirty bit set?
 }
 
-device_power_trace_capabilities() {
-    echo "sleep_signal=kernel_suspend wake_source=rtc_or_power lid_sensor=none rtc_alarm=available"
-}
 
-device_power_trace_notes() {
-    echo "uses rtc wakealarm + mem suspend and hwclock-based timer inference"
-}

@@ -104,17 +104,14 @@ enter_sleep() {
 
 get_current_volume() {
     log_message "Intentionally do not let spruce modify volume" -v
-    system_emit "audio" "KEYMON_OWNED" "KEYMON_OWNED" "MiyooMini.sh:get_current_volume" "volume reads intentionally skipped because keymon owns audio"
 }
 
 reset_playback_pack() {
     log_message "Intentionally do not let spruce modify audio, let keymon" -v
-    system_emit "audio" "KEYMON_OWNED" "KEYMON_OWNED" "MiyooMini.sh:reset_playback_pack" "audio reinit intentionally skipped because keymon owns audio"
 }
 
 run_mixer_watchdog() {
     log_message "Intentionally do not let spruce modify audio, let keymon" -v
-    system_emit "audio" "KEYMON_OWNED" "KEYMON_OWNED" "MiyooMini.sh:run_mixer_watchdog" "mixer watchdog intentionally skipped because keymon owns audio"
 }
 
 new_execution_loop() {
@@ -151,14 +148,9 @@ post_pyui_exit(){
 }
 
 launch_startup_watchdogs(){
-    # Keep keymon disabled to avoid dual ownership of /dev/input/event0.
-    killall -9 keymon 2>/dev/null
-
     if [ "$(get_miyoo_mini_variant)" = "MIYOO_MINI_FLIP" ]; then
-        log_message "Launching MiyooMini startup watchdogs (v2, has lid sensor)"
         launch_common_startup_watchdogs_v2 "true"
     else
-        log_message "Launching MiyooMini startup watchdogs (v2, no lid sensor)"
         launch_common_startup_watchdogs_v2 "false"
     fi
 }
@@ -207,25 +199,15 @@ set_volume() {
     # But sometimes they do work. It's based on if something else is already controlling the volume.
     # The main purpose of this is for NDS volume since drastic does some weird stuff
     # Can add more apps as needed
-    TRACE_SOURCE="${3:-MiyooMini.sh:set_volume}"
-    TRACE_CONTEXT="${4:-set volume request}"
     if pgrep -f "./drastic(32|64)?" >/dev/null; then
         VOLUME_LV="$1"
         SAVE_TO_CONFIG="${2:-true}"   # Optional 2nd arg, defaults to true
-        current_volume="$(jq -r '.vol // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
-        case "$current_volume" in
-            ''|*[!0-9]*) current_state="UNKNOWN" ;;
-            *) current_state="VOL_${current_volume}" ;;
-        esac
         /mnt/SDCARD/spruce/scripts/platform/device_functions/miyoomini/mm_set_volume.py "$VOLUME_LV" &
 
         # Call save_volume_to_config_file only if SAVE_TO_CONFIG is true
         if [ "$SAVE_TO_CONFIG" = true ]; then
             save_volume_to_config_file "$VOLUME_LV"
         fi
-        system_emit "audio" "$current_state" "VOL_${VOLUME_LV}" "$TRACE_SOURCE" "${TRACE_CONTEXT} drastic_active=true"
-    else
-        system_emit "audio" "KEYMON_OWNED" "KEYMON_OWNED" "$TRACE_SOURCE" "volume change intentionally skipped because keymon owns audio"
     fi
 }
 
@@ -236,15 +218,6 @@ current_backlight() {
 
 set_backlight() {
     local value="$1"
-    local trace_source="${2:-MiyooMini.sh:set_backlight}"
-    local trace_context="${3:-set brightness to ${value}}"
-    local current_backlight_value
-
-    current_backlight_value="$(jq -r '.backlight // "UNKNOWN"' "$SYSTEM_JSON" 2>/dev/null)"
-    case "$current_backlight_value" in
-        ''|*[!0-9]*) current_state="UNKNOWN" ;;
-        *) current_state="BL_${current_backlight_value}" ;;
-    esac
 
     # Clamp between 0–10
     [ "$value" -lt 0 ] && value=0
@@ -253,7 +226,7 @@ set_backlight() {
     jq ".backlight = $value" "$SYSTEM_JSON" > "$SYSTEM_JSON.tmp" && mv "$SYSTEM_JSON.tmp" "$SYSTEM_JSON"
     # Should we get this from path or always from PyUI?
     /mnt/SDCARD/App/PyUI/main-ui/devices/miyoo/mini/set_shared_memory 1 "$value"
-    system_emit "brightness" "$current_state" "BL_${value}" "$trace_source" "$trace_context"
+    [ -x /mnt/SDCARD/spruce/scripts/system-emit ] && /mnt/SDCARD/spruce/scripts/system-emit brightness UNKNOWN "BL_${value}" MiyooMini.sh/set_backlight 2>/dev/null || true
 }
 
 brightness_down() {
@@ -404,11 +377,4 @@ device_system_handles_sdcard_unmount() {
     # return 0 = true
     # return non-zero = false
     return 0
-}
-device_power_trace_capabilities() {
-    echo "sleep_signal=pseudo_or_hybrid wake_source=power_or_lid lid_sensor=optional rtc_alarm=limited"
-}
-
-device_power_trace_notes() {
-    echo "sleep implemented via process pause/screen blank/cpuclock; not always kernel suspend"
 }

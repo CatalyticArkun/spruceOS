@@ -26,22 +26,12 @@ while true; do
         "True") 
             # Detect lid close only
             if [ "$current_state" = "0" ]; then
-                if ! sleep_requests_allowed_now; then
-                    system_emit "power" "RUNNING" "SLEEPING" "lid_watchdog_v2.sh:main" "lid-close sleep suppressed; lifecycle gate closed"
-                    sleep 0.5
-                    continue
-                fi
                 /mnt/SDCARD/spruce/scripts/sleep_helper.sh
             fi
             ;;
         "Only when unplugged")
             # Detect lid close and charging state
             if [ "$current_state" = "0" ] && [ "$(device_get_charging_status)" = "Discharging" ]; then
-                if ! sleep_requests_allowed_now; then
-                    system_emit "power" "RUNNING" "SLEEPING" "lid_watchdog_v2.sh:main" "lid-close sleep suppressed while unplugged; lifecycle gate closed"
-                    sleep 0.5
-                    continue
-                fi
                 /mnt/SDCARD/spruce/scripts/sleep_helper.sh
             fi
             ;;
