@@ -6,7 +6,6 @@ from typing import List, Set
 
 from devices.device import Device
 from devices.utils.process_runner import ProcessRunner
-from display.display import Display
 from utils.logger import PyUiLogger
 
 
@@ -23,6 +22,9 @@ class WiFiNetwork:
 
 
 class WiFiScanner:
+    WPA_CLI_TIMEOUT_SECONDS = 5
+    STATUS_TIMEOUT_SECONDS = 2
+
     def __init__(self, interface="wlan0", delay=2):
         self.interface = interface
         self.delay = delay
@@ -30,12 +32,20 @@ class WiFiScanner:
         # Thread state
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        self._pause_event = threading.Event()
+        self._pause_ack_event = threading.Event()
+        self._worker_lock = threading.Lock()
+        self._active_scan_calls = 0
 
         # Shared scan results
         self._lock = threading.Lock()
         self._known_ssids: Set[str] = set()
         self._known_bssids: Set[str] = set()
         self._networks: List[WiFiNetwork] = []
+        self._connected_lock = threading.Lock()
+        self._connected_ssid: str | None = None
+        self._connected_freq: int | None = None
+        self._last_status_update = 0.0
 
     # ----------------------------
     # Worker thread
@@ -46,6 +56,12 @@ class WiFiScanner:
         log.info("WiFi scan thread started")
 
         while not self._stop_event.is_set():
+            if self._pause_event.is_set():
+                self._pause_ack_event.set()
+                self._stop_event.wait(0.1)
+                continue
+            self._pause_ack_event.clear()
+
             try:
                 self._scan_once_internal()
             except Exception:
@@ -62,17 +78,39 @@ class WiFiScanner:
         """
         log = PyUiLogger.get_logger()
 
-        result = ProcessRunner.run(["wpa_cli", "-i", self.interface, "scan"])
+        result = self._run_scan_command(["wpa_cli", "-i", self.interface, "scan"])
+        if result is None:
+            return
+        if result.returncode != 0 or "FAIL" in result.stdout.upper():
+            log.warning(
+                f"WiFi scan failed: rc={result.returncode}, stdout={result.stdout.strip()}, stderr={result.stderr.strip()}"
+            )
         if "Failed to connect to" in result.stderr:
             log.error("wlan0 seems broken, restarting and retrying")
             Device.get_device().wifi_error_detected()
             time.sleep(15)
-            ProcessRunner.run(["wpa_cli", "-i", self.interface, "scan"])
+            retry_result = self._run_scan_command(["wpa_cli", "-i", self.interface, "scan"])
+            if retry_result is None:
+                return
+            if retry_result.returncode != 0 or "FAIL" in retry_result.stdout.upper():
+                log.warning(
+                    f"WiFi scan retry failed: rc={retry_result.returncode}, "
+                    f"stdout={retry_result.stdout.strip()}, stderr={retry_result.stderr.strip()}"
+                )
+                return
 
         # Let wpa_supplicant populate results
-        time.sleep(self.delay)
+        if self._stop_event.wait(self.delay) or self._pause_event.is_set():
+            return
 
-        result = ProcessRunner.run(["wpa_cli", "-i", self.interface, "scan_results"])
+        result = self._run_scan_command(["wpa_cli", "-i", self.interface, "scan_results"])
+        if result is None:
+            return
+        if result.returncode != 0 or "FAIL" in result.stdout.upper():
+            log.warning(
+                f"WiFi scan results failed: rc={result.returncode}, stdout={result.stdout.strip()}, stderr={result.stderr.strip()}"
+            )
+            return
         lines = result.stdout.strip().splitlines()
 
         new_networks: List[WiFiNetwork] = []
@@ -125,12 +163,49 @@ class WiFiScanner:
     def _start_thread(self):
         PyUiLogger.get_logger().info("Starting WiFi scan thread")
         self._stop_event.clear()
+        self._pause_event.clear()
         self._thread = threading.Thread(
             target=self._scan_worker,
             name="WiFiScannerThread",
             daemon=True,
         )
         self._thread.start()
+
+    def _run_scan_command(self, args):
+        with self._worker_lock:
+            self._active_scan_calls += 1
+            self._pause_ack_event.clear()
+        try:
+            return ProcessRunner.run(
+                args,
+                timeout=self.WPA_CLI_TIMEOUT_SECONDS
+            )
+        finally:
+            with self._worker_lock:
+                self._active_scan_calls -= 1
+                if self._pause_event.is_set() and self._active_scan_calls == 0:
+                    self._pause_ack_event.set()
+
+    def pause(self, wait=False, timeout=None):
+        PyUiLogger.get_logger().info("Pausing WiFi scan thread")
+        self._pause_event.set()
+        if not wait:
+            return True
+
+        if not self._thread or not self._thread.is_alive():
+            self._pause_ack_event.set()
+            return True
+
+        with self._worker_lock:
+            if self._active_scan_calls == 0:
+                self._pause_ack_event.set()
+
+        return self._pause_ack_event.wait(timeout)
+
+    def resume(self):
+        PyUiLogger.get_logger().info("Resuming WiFi scan thread")
+        self._pause_event.clear()
+        self._pause_ack_event.clear()
 
     def stop(self):
         """
@@ -139,6 +214,8 @@ class WiFiScanner:
         log = PyUiLogger.get_logger()
         log.info("Stopping WiFi scan thread")
         self._stop_event.set()
+        self._pause_event.clear()
+        self._pause_ack_event.set()
 
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)
@@ -155,16 +232,36 @@ class WiFiScanner:
     # ----------------------------
 
     def get_connected_ssid(self):
+        now = time.monotonic()
+        with self._connected_lock:
+            if now - self._last_status_update < 1:
+                return self._connected_ssid, self._connected_freq
+
         ssid = None
         freq = None
         try:
-            result = ProcessRunner.run(["wpa_cli", "status"])
-            for line in result.stdout.splitlines():
-                if line.startswith("ssid="):
-                    ssid = line.split("=", 1)[1]
-                elif line.startswith("freq="):
-                    freq = int(line.split("=", 1)[1])
-        except subprocess.CalledProcessError as e:
-            PyUiLogger.get_logger().error(f"Failed to get Wi-Fi details: {e}")
+            result = ProcessRunner.run(
+                ["wpa_cli", "status"],
+                timeout=self.STATUS_TIMEOUT_SECONDS
+            )
+            if result.returncode != 0:
+                PyUiLogger.get_logger().warning(
+                    f"Failed to get Wi-Fi details: rc={result.returncode}, stderr={result.stderr.strip()}"
+                )
+            else:
+                for line in result.stdout.splitlines():
+                    if line.startswith("ssid="):
+                        ssid = line.split("=", 1)[1]
+                    elif line.startswith("freq="):
+                        freq = int(line.split("=", 1)[1])
+                with self._connected_lock:
+                    self._connected_ssid = ssid
+                    self._connected_freq = freq
+                    self._last_status_update = now
+        except subprocess.TimeoutExpired:
+            PyUiLogger.get_logger().warning("Timed out getting Wi-Fi details")
+        with self._connected_lock:
+            if ssid is None and freq is None:
+                return self._connected_ssid, self._connected_freq
 
         return ssid, freq

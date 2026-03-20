@@ -1,6 +1,7 @@
 
 import os
 import sys
+import threading
 from controller.controller_inputs import ControllerInput
 from devices.device import Device
 from display.display import Display
@@ -15,6 +16,7 @@ from menus.settings.theme.theme_selection_menu import ThemeSelectionMenu
 from menus.settings.theme.theme_settings_menu import ThemeSettingsMenu
 from menus.settings.wifi_menu import WifiMenu
 from themes.theme import Theme
+from utils.logger import PyUiLogger
 from utils.py_ui_config import PyUiConfig
 from views.grid_or_list_entry import GridOrListEntry
 from views.selection import Selection
@@ -28,6 +30,7 @@ class BasicSettingsMenu(settings_menu.SettingsMenu):
         self.wifi_menu = Device.get_device().get_wifi_menu()
         self.bt_menu = BluetoothMenu()
         self.theme_ever_changed = False
+        self._wifi_toggle_lock = threading.Lock()
 
     def shutdown(self, input: ControllerInput):
         if(ControllerInput.A == input):
@@ -51,13 +54,31 @@ class BasicSettingsMenu(settings_menu.SettingsMenu):
 
     def show_wifi_menu(self, input):
         if(ControllerInput.DPAD_LEFT == input or ControllerInput.DPAD_RIGHT == input):
-            if(Device.get_device().is_wifi_enabled()):
-                Device.get_device().disable_wifi()
-            else:
-                Device.get_device().enable_wifi()
+            self._toggle_wifi_async()
 
         if(ControllerInput.A == input):
             self.wifi_menu.show_wifi_menu()
+
+    def _toggle_wifi_async(self):
+        if self._wifi_toggle_lock.locked():
+            Display.display_message("WiFi is already updating...", duration_ms=2000)
+            return
+
+        def worker():
+            with self._wifi_toggle_lock:
+                wifi_enabled = Device.get_device().is_wifi_enabled()
+                try:
+                    if wifi_enabled:
+                        success = Device.get_device().disable_wifi()
+                    else:
+                        success = Device.get_device().enable_wifi()
+                except Exception:
+                    success = False
+
+                if success is False:
+                    PyUiLogger.get_logger().error("WiFi update failed")
+
+        threading.Thread(target=worker, name="WiFiToggleWorker", daemon=True).start()
 
     def show_bt_menu(self, input):
         if(ControllerInput.DPAD_LEFT == input or ControllerInput.DPAD_RIGHT == input):

@@ -22,6 +22,27 @@ from utils.logger import PyUiLogger
 
 
 class MiyooTrimCommon():
+    WIFI_IFCONFIG_TIMEOUT_SECONDS = 5
+    WIFI_KILL_TIMEOUT_SECONDS = 3
+
+    @staticmethod
+    def _run_wifi_shutdown_command(cmd):
+        try:
+            result = ProcessRunner.run(
+                cmd,
+                timeout=MiyooTrimCommon.WIFI_KILL_TIMEOUT_SECONDS
+            )
+        except subprocess.TimeoutExpired:
+            PyUiLogger.get_logger().warning(f"Timed out stopping WiFi service: {' '.join(cmd)}")
+            return False
+
+        if result.returncode not in (0, 1):
+            PyUiLogger.get_logger().warning(
+                f"WiFi shutdown command failed: {' '.join(cmd)} rc={result.returncode}, "
+                f"stderr={result.stderr.strip()}"
+            )
+            return False
+        return True
         
     @staticmethod
     def convert_game_path_to_miyoo_path(original_path, remap_sdcard_path):
@@ -108,13 +129,13 @@ class MiyooTrimCommon():
     @staticmethod
     def stop_wifi_services(device):
         PyUiLogger.get_logger().info("Stopping WiFi Services")
-        ProcessRunner.run(['killall', '-15', 'wpa_supplicant'])
+        MiyooTrimCommon._run_wifi_shutdown_command(['killall', '-15', 'wpa_supplicant'])
         time.sleep(0.1)  
-        ProcessRunner.run(['killall', '-9', 'wpa_supplicant'])
+        MiyooTrimCommon._run_wifi_shutdown_command(['killall', '-9', 'wpa_supplicant'])
         time.sleep(0.1)  
-        ProcessRunner.run(['killall', '-15', 'udhcpc'])
+        MiyooTrimCommon._run_wifi_shutdown_command(['killall', '-15', 'udhcpc'])
         time.sleep(0.1)  
-        ProcessRunner.run(['killall', '-9', 'udhcpc'])
+        MiyooTrimCommon._run_wifi_shutdown_command(['killall', '-9', 'udhcpc'])
         time.sleep(0.1)  
         Device.get_device().set_wifi_power(0)
 
@@ -165,20 +186,59 @@ class MiyooTrimCommon():
         Device.get_device().system_config.reload_config()
         Device.get_device().system_config.set_wifi(0)
         Device.get_device().system_config.save_config()
-        ProcessRunner.run(["ifconfig","wlan0","down"])
-        Device.get_device().stop_wifi_services()
+        try:
+            result = ProcessRunner.run(
+                ["ifconfig","wlan0","down"],
+                timeout=MiyooTrimCommon.WIFI_IFCONFIG_TIMEOUT_SECONDS
+            )
+            if result.returncode != 0:
+                PyUiLogger.get_logger().error(
+                    f"Failed to bring wlan0 down: rc={result.returncode}, stderr={result.stderr.strip()}"
+                )
+                Device.get_device().system_config.set_wifi(1)
+                Device.get_device().system_config.save_config()
+                return False
+            Device.get_device().stop_wifi_services()
+        except subprocess.TimeoutExpired:
+            PyUiLogger.get_logger().error("Timed out bringing wlan0 down")
+            Device.get_device().system_config.set_wifi(1)
+            Device.get_device().system_config.save_config()
+            return False
         Device.get_device().get_wifi_status.force_refresh()
         Device.get_device().get_ip_addr_text.force_refresh()
+        return True
 
     @staticmethod
     def enable_wifi(device):
         Device.get_device().system_config.reload_config()
         Device.get_device().system_config.set_wifi(1)
         Device.get_device().system_config.save_config()
-        ProcessRunner.run(["ifconfig","wlan0","up"])
-        Device.get_device().start_wifi_services()
+        try:
+            result = ProcessRunner.run(
+                ["ifconfig","wlan0","up"],
+                timeout=MiyooTrimCommon.WIFI_IFCONFIG_TIMEOUT_SECONDS
+            )
+            if result.returncode != 0:
+                PyUiLogger.get_logger().error(
+                    f"Failed to bring wlan0 up: rc={result.returncode}, stderr={result.stderr.strip()}"
+                )
+                Device.get_device().system_config.set_wifi(0)
+                Device.get_device().system_config.save_config()
+                return False
+        except subprocess.TimeoutExpired:
+            PyUiLogger.get_logger().error("Timed out bringing wlan0 up")
+            Device.get_device().system_config.set_wifi(0)
+            Device.get_device().system_config.save_config()
+            return False
+        startup_result = Device.get_device().start_wifi_services()
+        if startup_result is False:
+            PyUiLogger.get_logger().error("WiFi services failed to start")
+            Device.get_device().system_config.set_wifi(0)
+            Device.get_device().system_config.save_config()
+            return False
         Device.get_device().get_wifi_status.force_refresh()
         Device.get_device().get_ip_addr_text.force_refresh()
+        return True
 
     @staticmethod
     def run_analog_stick_calibration(device, stick_name, joystick, file_path, leftOrRight):

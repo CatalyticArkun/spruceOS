@@ -40,6 +40,7 @@ MI_AO_SETMUTE   = 0x4008690d
 class MiyooMiniCommon(MiyooDevice):
     OUTPUT_MIXER = 2
     SOUND_DISABLED = 0
+    WIFI_START_TIMEOUT_SECONDS = 10
 
 
     def __init__(self, device_name, main_ui_mode, miyoo_mini_specific_model_variables: MiyooMiniSpecificModelVariables):
@@ -328,40 +329,86 @@ class MiyooMiniCommon(MiyooDevice):
     
 
     def start_wifi_services(self):
-        if(self.miyoo_mini_specific_model_variables.supports_wifi):
+        if(not self.miyoo_mini_specific_model_variables.supports_wifi):
+            return False
+
+        def run_wifi_start_command(cmd, step_name):
             try:
-                # Check if system already has an IP address
                 result = subprocess.run(
-                    ["ip", "route", "get", "1"],
+                    cmd,
                     capture_output=True,
-                    text=True
+                    text=True,
+                    timeout=self.WIFI_START_TIMEOUT_SECONDS
                 )
+            except subprocess.TimeoutExpired:
+                PyUiLogger.get_logger().error(f"Timed out during WiFi startup step: {step_name}")
+                return False
 
-                # Extract the last field (the IP) like `awk '{print $NF;exit}'`
-                parts = result.stdout.strip().split()
-                ip = parts[-1] if parts else ""
+            if result.returncode != 0:
+                PyUiLogger.get_logger().error(
+                    f"WiFi startup step failed ({step_name}): rc={result.returncode}, "
+                    f"stdout={result.stdout.strip()}, stderr={result.stderr.strip()}"
+                )
+                return False
+            return True
 
-                if not ip:
-                    PyUiLogger.get_logger().info("Wifi is disabled - trying to enable it...")
+        try:
+            result = subprocess.run(
+                ["ip", "route", "get", "1"],
+                capture_output=True,
+                text=True,
+                timeout=self.WIFI_START_TIMEOUT_SECONDS
+            )
+        except subprocess.TimeoutExpired:
+            PyUiLogger.get_logger().error("Timed out checking existing WiFi route")
+            return False
 
-                    subprocess.run(["insmod", "/mnt/SDCARD/8188fu.ko"])
-                    subprocess.run(["ifconfig", "lo", "up"])
-                    subprocess.run(["/customer/app/axp_test", "wifion"])
-                    time.sleep(2)
-                    subprocess.run(["ifconfig", "wlan0", "up"])
-                    subprocess.run([
-                        "wpa_supplicant",
-                        "-B",
-                        "-D", "nl80211",
-                        "-i", "wlan0",
-                        "-c", self.get_wpa_supplicant_conf_path()
-                    ])
-                    subprocess.run(["udhcpc", "-i", "wlan0", "-s", "/etc/init.d/udhcpc.script"])
-                    time.sleep(3)
-                    os.system("clear")
+        if result.returncode != 0:
+            PyUiLogger.get_logger().error(
+                f"Failed checking existing WiFi route: rc={result.returncode}, "
+                f"stdout={result.stdout.strip()}, stderr={result.stderr.strip()}"
+            )
+            return False
 
-            except Exception as e:
-                PyUiLogger.get_logger().error(f"Error enabling WiFi: {e}")
+        parts = result.stdout.strip().split()
+        ip = parts[-1] if parts else ""
+
+        if ip:
+            return True
+
+        PyUiLogger.get_logger().info("Wifi is disabled - trying to enable it...")
+
+        startup_steps = [
+            (["insmod", "/mnt/SDCARD/8188fu.ko"], "insmod"),
+            (["ifconfig", "lo", "up"], "ifconfig lo up"),
+            (["/customer/app/axp_test", "wifion"], "axp_test wifion"),
+        ]
+
+        for cmd, step_name in startup_steps:
+            if not run_wifi_start_command(cmd, step_name):
+                return False
+
+        time.sleep(2)
+
+        if not run_wifi_start_command(["ifconfig", "wlan0", "up"], "ifconfig wlan0 up"):
+            return False
+        if not run_wifi_start_command([
+            "wpa_supplicant",
+            "-B",
+            "-D", "nl80211",
+            "-i", "wlan0",
+            "-c", self.get_wpa_supplicant_conf_path()
+        ], "wpa_supplicant"):
+            return False
+        if not run_wifi_start_command(
+            ["udhcpc", "-i", "wlan0", "-s", "/etc/init.d/udhcpc.script"],
+            "udhcpc"
+        ):
+            return False
+
+        time.sleep(3)
+        os.system("clear")
+        return True
 
 
     def set_wifi_power(self, value):

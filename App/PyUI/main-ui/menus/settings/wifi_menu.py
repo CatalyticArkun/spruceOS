@@ -1,9 +1,10 @@
 
-from asyncio import subprocess
+import subprocess
 import tempfile
 import time
 import os
 import re
+import threading
 from controller.controller_inputs import ControllerInput
 from devices.device import Device
 from devices.utils.process_runner import ProcessRunner
@@ -23,17 +24,35 @@ from views.view_type import ViewType
 from menus.language.language import Language
 
 class WifiMenu:
+    WPA_CLI_TIMEOUT_SECONDS = 5
+    SCANNER_PAUSE_TIMEOUT_SECONDS = 6
+
     def __init__(self):
         self.on_screen_keyboard = OnScreenKeyboard()
+        self._wifi_toggle_lock = threading.Lock()
 
     def wifi_adjust(self):
-        if Device.get_device().is_wifi_enabled():
-            Device.get_device().disable_wifi()
-        else:
-            Device.get_device().enable_wifi()
+        if self._wifi_toggle_lock.locked():
+            Display.display_message("WiFi is already updating...", duration_ms=2000)
+            return
+
+        def worker():
+            with self._wifi_toggle_lock:
+                wifi_enabled = Device.get_device().is_wifi_enabled()
+                try:
+                    if wifi_enabled:
+                        success = Device.get_device().disable_wifi()
+                    else:
+                        success = Device.get_device().enable_wifi()
+                except Exception:
+                    success = False
+                if success is False:
+                    PyUiLogger.get_logger().error("WiFi update failed")
+
+        threading.Thread(target=worker, name="WiFiMenuToggleWorker", daemon=True).start()
 
 
-    def write_wpa_supplicant_conf(self, ssid: str, pw_line: str):
+    def write_wpa_supplicant_conf(self, ssid: str, pw_line: str) -> bool:
         """
         Writes exactly one network block for `ssid` into the wpa_supplicant config.
         Any existing entries for the same SSID are removed.
@@ -60,7 +79,7 @@ class WifiMenu:
                     content = normalize(f.read())
             except OSError as e:
                 PyUiLogger.get_logger().error(f"Failed reading {file_path}: {e}")
-                return
+                return False
 
         # ---------------------------
         # Extract existing network blocks
@@ -130,34 +149,61 @@ class WifiMenu:
             PyUiLogger.get_logger().info(
                 f"Installed network '{ssid}' into {file_path}"
             )
+            return True
 
         except OSError as e:
             PyUiLogger.get_logger().error(f"Failed writing {file_path}: {e}")
+            return False
 
 
 
-    def reload_wpa_supplicant_config(self):
+    def reload_wpa_supplicant_config(self) -> bool:
         try:
-            ProcessRunner.run(["wpa_cli", "reconfigure"])
+            result = ProcessRunner.run(
+                ["wpa_cli", "reconfigure"],
+                timeout=self.WPA_CLI_TIMEOUT_SECONDS
+            )
+            if result.returncode != 0 or "FAIL" in result.stdout.upper():
+                PyUiLogger.get_logger().error(
+                    f"wpa_supplicant.conf reload failed: rc={result.returncode}, "
+                    f"stdout={result.stdout.strip()}, stderr={result.stderr.strip()}"
+                )
+                return False
             PyUiLogger.get_logger().info("wpa_supplicant.conf reloaded successfully.")
-        except subprocess.CalledProcessError as e:
-            PyUiLogger.get_logger().error(f"Error reloading wpa_supplicant.conf: {e}")
-
-
-    #TODO add confirmation or failed popups
+            return True
+        except subprocess.TimeoutExpired:
+            PyUiLogger.get_logger().error("Timed out reloading wpa_supplicant.conf")
+            return False
     def switch_network(self, net: WiFiNetwork):
         PyUiLogger.get_logger().info(f"Selected {net.ssid}!")
-        if(net.requires_password()):
-            password = self.on_screen_keyboard.get_input("WiFi Password")
-            if(password is not None and 8 <= len(password) <= 63):
-                self.write_wpa_supplicant_conf(net.ssid, "psk=\""+password+"\"")
-                Display.display_message(f"Updating config file for {net.ssid} with password {password}", duration_ms=5000)
-            else:
-                Display.display_message("Invalid WiFi password length! Must be between 8 and 63", duration_ms=5000)
-        else:   
-            self.write_wpa_supplicant_conf(net.ssid, "key_mgmt=NONE")
+        if not self.wifi_scanner.pause(wait=True, timeout=self.SCANNER_PAUSE_TIMEOUT_SECONDS):
+            PyUiLogger.get_logger().error("Timed out waiting for WiFi scanner to pause")
+            Display.display_message("WiFi scan is busy, please try again", duration_ms=5000)
+            return
+        try:
+            if(net.requires_password()):
+                password = self.on_screen_keyboard.get_input("WiFi Password")
+                if(password is not None and 8 <= len(password) <= 63):
+                    write_ok = self.write_wpa_supplicant_conf(net.ssid, "psk=\""+password+"\"")
+                    if not write_ok:
+                        Display.display_message(f"Failed to update config for {net.ssid}", duration_ms=5000)
+                        return
+                    Display.display_message(f"Updating config for {net.ssid}", duration_ms=3000)
+                else:
+                    Display.display_message("Invalid WiFi password length! Must be between 8 and 63", duration_ms=5000)
+                    return
+            else:   
+                write_ok = self.write_wpa_supplicant_conf(net.ssid, "key_mgmt=NONE")
+                if not write_ok:
+                    Display.display_message(f"Failed to update config for {net.ssid}", duration_ms=5000)
+                    return
 
-        self.reload_wpa_supplicant_config()
+            if self.reload_wpa_supplicant_config():
+                Display.display_message(f"Switching to {net.ssid}", duration_ms=3000)
+            else:
+                Display.display_message(f"Failed to switch to {net.ssid}", duration_ms=5000)
+        finally:
+            self.wifi_scanner.resume()
 
     def _build_options(
         self,
