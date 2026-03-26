@@ -18,7 +18,11 @@
         "GKD_PIXEL2",
         "ANBERNIC_RG34XXSP",
         "ANBERNIC_RG28XX",
-        "ANBERNIC_RGXX640480"
+        "ANBERNIC_RGXX640480",
+        "MIYOO_MINI",
+        "MIYOO_MINI_V4",
+        "MIYOO_MINI_PLUS",
+        "MIYOO_MINI_FLIP"
       ]
     },
     {
@@ -33,7 +37,11 @@
         "GKD_PIXEL2",
         "ANBERNIC_RG34XXSP",
         "ANBERNIC_RG28XX",
-        "ANBERNIC_RGXX640480"
+        "ANBERNIC_RGXX640480",
+        "MIYOO_MINI",
+        "MIYOO_MINI_V4",
+        "MIYOO_MINI_PLUS",
+        "MIYOO_MINI_FLIP"
       ]
     }
   ],
@@ -51,7 +59,6 @@
     "Emulator_A30": {
       "display": "Emulator",
       "options": [
-        "scummvm_libretro",
         "scummvm-standalone"
       ],
       "devices": [
@@ -60,10 +67,23 @@
       "selected": "scummvm-standalone",
       "overrides": {}
     },
+    "Emulator_MiyooMini": {
+      "display": "Emulator",
+      "options": [
+        "scummvm-standalone"
+      ],
+      "devices": [
+        "MIYOO_MINI",
+        "MIYOO_MINI_V4",
+        "MIYOO_MINI_PLUS",
+        "MIYOO_MINI_FLIP"
+      ],
+      "selected": "scummvm-standalone",
+      "overrides": {}
+    },
     "Emulator_64": {
       "display": "Emulator",
       "options": [
-        "scummvm_libretro",
         "scummvm-standalone"
       ],
       "devices": [
@@ -80,6 +100,21 @@
       "overrides": {}
     }
   },
+  "devices": [
+    "TRIMUI_BRICK",
+    "TRIMUI_SMART_PRO",
+    "TRIMUI_SMART_PRO_S",
+    "MIYOO_FLIP",
+    "MIYOO_A30",
+    "GKD_PIXEL2",
+    "ANBERNIC_RG34XXSP",
+    "ANBERNIC_RG28XX",
+    "ANBERNIC_RGXX640480",
+    "MIYOO_MINI",
+    "MIYOO_MINI_V4",
+    "MIYOO_MINI_PLUS",
+    "MIYOO_MINI_FLIP"
+  ],
   "sortOrder": 5600,
   "brand": "modernengine",
   "type": "pc",
