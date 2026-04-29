@@ -16,6 +16,16 @@ host or device system surfaces by accident.
 - `device-surface`: opt-in read-only probes against actual device surfaces.
   These tests are gated and should only observe safe paths or safe commands.
 
+## Remote Safety
+
+This harness branch must never be pushed to `upstream`. The `upstream` remote is
+receive-only for pulling updates from `spruceUI/spruceOS`; all harness work must
+push to `origin`, the `CatalyticArkun/spruceOS` fork.
+
+This checkout uses a local `core.hooksPath=.githooks` setting and a pre-push hook
+that rejects pushes to `upstream` or to the canonical `spruceUI/spruceOS` URL.
+The local `upstream` push URL should also remain set to a disabled placeholder.
+
 ## Running
 
 Host simulated smoke tests:
