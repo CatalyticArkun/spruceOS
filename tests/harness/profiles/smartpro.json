@@ -1,0 +1,20 @@
+{
+  "name": "smartpro",
+  "expected_platform": "SmartPro",
+  "expected_display": {
+    "DISPLAY_WIDTH": "1280",
+    "DISPLAY_HEIGHT": "720",
+    "DISPLAY_ASPECT_RATIO": "16:9",
+    "PLATFORM_ARCHITECTURE": "aarch64"
+  },
+  "cpuinfo": "Hardware\t: TG5040\n",
+  "system_json_path": "/mnt/SDCARD/Saves/trim-ui-smart-pro-system.json",
+  "sd_mountpoint": "/mnt/SDCARD",
+  "files": {
+    "/mnt/UDISK/system.json": "{\"vol\": 10}\n"
+  },
+  "sysfs": {
+    "/sys/class/power_supply/axp2202-battery/capacity": "64\n",
+    "/sys/class/rtc/rtc0/wakealarm": "\n"
+  }
+}

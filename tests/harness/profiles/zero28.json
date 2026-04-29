@@ -1,0 +1,21 @@
+{
+  "name": "zero28",
+  "expected_platform": "Zero28",
+  "expected_display": {
+    "DISPLAY_WIDTH": "640",
+    "DISPLAY_HEIGHT": "480",
+    "DISPLAY_ASPECT_RATIO": "4:3",
+    "PLATFORM_ARCHITECTURE": "aarch64"
+  },
+  "cpuinfo": "Hardware\t: MagicX Zero 28\n",
+  "system_json_path": "/mnt/SDCARD/Saves/magicx-zero28-system.json",
+  "sd_mountpoint": "/mnt/SDCARD",
+  "files": {
+    "/usr/magicx": "1\n",
+    "/mnt/UDISK/system.json": "{\"vol\": 10}\n"
+  },
+  "sysfs": {
+    "/sys/class/power_supply/axp2202-battery/capacity": "61\n",
+    "/sys/class/rtc/rtc0/wakealarm": "\n"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "anbernic_rg34xxsp",
+  "expected_platform": "AnbernicRG34XXSP",
+  "expected_display": {
+    "DISPLAY_WIDTH": "720",
+    "DISPLAY_HEIGHT": "480",
+    "DISPLAY_ASPECT_RATIO": "3:2",
+    "PLATFORM_ARCHITECTURE": "aarch64"
+  },
+  "cpuinfo": "CPU implementer\t: 0xd03\nHardware\t: Anbernic H700\n",
+  "cmdline": "console=ttyS0 lcd_type=boe root=/dev/mmcblk0p2\n",
+  "system_json_path": "/mnt/SDCARD/Saves/anbernic-rg34xxsp-system.json",
+  "sd_mountpoint": "/mnt/SDCARD",
+  "files": {
+    "/mnt/vendor/oem/board.ini": "board=RG34XXSP\n"
+  },
+  "sysfs": {
+    "/sys/class/power_supply/axp2202-battery/capacity": "73\n",
+    "/sys/class/rtc/rtc0/wakealarm": "\n"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "miyoomini",
+  "expected_platform": "MiyooMini",
+  "expected_display": {
+    "DISPLAY_WIDTH": "640",
+    "DISPLAY_HEIGHT": "480",
+    "DISPLAY_ASPECT_RATIO": "4:3",
+    "PLATFORM_ARCHITECTURE": "armhf"
+  },
+  "cpuinfo": "Hardware\t: Miyoo Mini\n",
+  "system_json_path": "/mnt/SDCARD/Saves/mini-flip-system.json",
+  "sd_mountpoint": "/mnt/SDCARD",
+  "files": {
+    "/customer/app/axp_test": "#!/bin/sh\necho '{\"battery\": 70, \"charging\": 0}'\n"
+  },
+  "sysfs": {
+    "/sys/class/power_supply/battery/capacity": "70\n",
+    "/sys/devices/virtual/disp/disp/attr/lcdbl": "55\n",
+    "/sys/class/rtc/rtc0/wakealarm": "\n"
+  }
+}
