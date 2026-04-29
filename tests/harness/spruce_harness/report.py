@@ -41,6 +41,16 @@ SMOKE_SURFACES = {
     "runtime_helper": [
         "spruce/scripts/runtimeHelper.sh",
     ],
+    "maintenance_tasks": [
+        "spruce/scripts/tasks/clearFavorites.sh",
+        "spruce/scripts/tasks/clearRecents.sh",
+        "spruce/scripts/tasks/clearwifi.sh",
+        "spruce/scripts/tasks/resetNDS.sh",
+        "spruce/scripts/tasks/resetPCSXR.sh",
+        "spruce/scripts/tasks/resetPPSSPP.sh",
+        "spruce/scripts/tasks/resetRA.sh",
+        "spruce/scripts/tasks/bugReport.sh",
+    ],
     "sleep_helper": [
         "spruce/scripts/sleep_helper.sh",
         "spruce/scripts/platform/device_functions/utils/sleep_functions.sh",
