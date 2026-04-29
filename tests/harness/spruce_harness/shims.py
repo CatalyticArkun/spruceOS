@@ -31,6 +31,7 @@ SHIMMED_COMMANDS = {
     "pidof",
     "ping",
     "poweroff",
+    "python",
     "ra32.universal",
     "ra32.a30",
     "ra32.mini",
@@ -38,6 +39,7 @@ SHIMMED_COMMANDS = {
     "ra64.pixel2",
     "reboot",
     "rmmod",
+    "save_poweroff.sh",
     "sendevent",
     "sftpgo",
     "sleep",
@@ -154,7 +156,14 @@ class CommandShims:
             "/mnt/SDCARD/spruce/bin64/SFTPGo/sftpgo/sftpgo": "sftpgo",
             "/mnt/SDCARD/spruce/bin/Syncthing/bin/syncthing": "syncthing",
             "/mnt/SDCARD/spruce/bin64/Syncthing/bin/syncthing": "syncthing",
+            "/mnt/SDCARD/spruce/bin/Python3/bin/python3": "python",
+            "/mnt/SDCARD/spruce/bin/python/bin/python3.10": "python",
+            "/mnt/SDCARD/spruce/flip/bin/python3": "python",
+            "/mnt/SDCARD/spruce/flip/bin/python3.10": "python",
+            "/mnt/SDCARD/spruce/miyoomini/bin/python3": "python",
+            "/mnt/SDCARD/spruce/pixel2/bin/python": "python",
             "/mnt/SDCARD/spruce/scripts/applySetting/idlemon_mm.sh": "idlemon_mm.sh",
+            "/mnt/SDCARD/spruce/scripts/save_poweroff.sh": "save_poweroff.sh",
             "/mnt/SDCARD/App/PyUI/launch.sh": "MainUI",
             "/usr/trimui/osd/show_volume_msg.sh": "show_volume_msg.sh",
             "/usr/libexec/bluetooth/bluetoothd": "bluetoothd",
@@ -392,7 +401,17 @@ def main():
             print_and_exit(command, argv, 1)
         print_and_exit(command, argv)
 
-    if command in {"wpa_supplicant", "udhcpc", "darkhttpd", "syncthing", "smbd", "sftpgo", "dropbearmulti", "idlemon", "idlemon_mm.sh", "ra32.universal", "ra32.a30", "ra32.mini", "ra64.universal", "ra64.pixel2", "MainUI", "bluetoothd"}:
+    if command == "python":
+        print_and_exit(command, argv)
+
+    if command == "MainUI" and any("msgDisplayRealtimePort" in arg for arg in argv):
+        listener = ROOT / "mnt/SDCARD/App/PyUI/realtime_message_network_listener.txt"
+        listener.parent.mkdir(parents=True, exist_ok=True)
+        listener.write_text("ready\n")
+        add_process(command, argv)
+        print_and_exit(command, argv)
+
+    if command in {"wpa_supplicant", "udhcpc", "darkhttpd", "syncthing", "smbd", "sftpgo", "dropbearmulti", "idlemon", "idlemon_mm.sh", "save_poweroff.sh", "ra32.universal", "ra32.a30", "ra32.mini", "ra64.universal", "ra64.pixel2", "MainUI", "bluetoothd"}:
         add_process(command, argv)
         print_and_exit(command, argv)
 
@@ -441,7 +460,12 @@ def main():
 
     if command == "7zr":
         if argv and argv[0] == "l":
-            print_and_exit(command, argv, 0, str(ROOT / "mnt/SDCARD/fake-content") + "\n")
+            print_and_exit(
+                command,
+                argv,
+                0,
+                f"2026-01-10 14:23:54 ....A           12           12  {ROOT / 'mnt/SDCARD/fake-content.bin'}\n",
+            )
         print_and_exit(command, argv)
 
     if command == "jq":

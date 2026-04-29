@@ -72,9 +72,9 @@ Smoke tests should assert:
 - logs and `system-emit` calls
 
 Current smoke coverage includes platform detection, Wi-Fi contracts, network
-service start/stop behavior, archive unpacking, runtime boot/autoresume
-staging, bounded sleep/wake behavior, stage2 poweroff, standard emulator launch,
-and layer gates.
+service start/stop behavior, archive unpacking, firstboot package/wrapup flow,
+runtime boot/autoresume staging, bounded sleep/wake behavior, stage2 poweroff,
+standard emulator launch, and layer gates.
 
 Any test that writes to real device paths belongs in a separate, explicitly
 approved live-device suite, not in this harness.

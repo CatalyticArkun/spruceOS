@@ -33,6 +33,11 @@ SMOKE_SURFACES = {
         "spruce/scripts/archiveUnpacker.sh",
         "spruce/scripts/firstbootLaneCommon.sh",
     ],
+    "firstboot": [
+        "spruce/scripts/firstboot.sh",
+        "spruce/scripts/firstbootLaneCommon.sh",
+        "spruce/scripts/network/sshFunctions.sh",
+    ],
     "runtime_helper": [
         "spruce/scripts/runtimeHelper.sh",
     ],

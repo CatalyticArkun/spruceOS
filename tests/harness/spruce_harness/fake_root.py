@@ -128,6 +128,9 @@ class FakeRoot:
         src = self.repo_root / "spruce" / "scripts"
         dst = self.fake_path("/mnt/SDCARD/spruce/scripts")
         shutil.copytree(src, dst)
+        for path in dst.rglob("*"):
+            if path.is_file() and (path.suffix == ".sh" or path.name in {"updater"}):
+                path.chmod(path.stat().st_mode | 0o755)
 
     def _write_profile_files(self) -> None:
         self.write_real_path("/proc/cpuinfo", self.profile.cpuinfo)
