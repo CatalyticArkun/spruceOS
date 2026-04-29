@@ -51,6 +51,12 @@ SMOKE_SURFACES = {
         "spruce/scripts/tasks/resetRA.sh",
         "spruce/scripts/tasks/bugReport.sh",
     ],
+    "device_utilities": [
+        "spruce/scripts/set_up_swap.sh",
+        "spruce/scripts/enable_zram.sh",
+        "spruce/scripts/disable_zram.sh",
+        "spruce/scripts/asound-setup.sh",
+    ],
     "sleep_helper": [
         "spruce/scripts/sleep_helper.sh",
         "spruce/scripts/platform/device_functions/utils/sleep_functions.sh",

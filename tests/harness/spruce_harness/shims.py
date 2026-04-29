@@ -13,6 +13,7 @@ SHIMMED_COMMANDS = {
     "bluetoothctl",
     "curl",
     "darkhttpd",
+    "dd",
     "dhclient",
     "dropbearmulti",
     "getevent",
@@ -26,6 +27,7 @@ SHIMMED_COMMANDS = {
     "kill",
     "killall",
     "modprobe",
+    "mkswap",
     "mount",
     "pgrep",
     "pidof",
@@ -46,6 +48,8 @@ SHIMMED_COMMANDS = {
     "smbpasswd",
     "smbd",
     "sync",
+    "swapoff",
+    "swapon",
     "syncthing",
     "systemctl",
     "udhcpc",
@@ -365,7 +369,7 @@ def main():
     command = sys.argv[1]
     argv = sys.argv[2:]
 
-    if command in {"sleep", "sync", "modprobe", "rmmod", "systemctl", "hciconfig", "bluealsa", "bluetoothctl", "dhclient", "xradio", "alsactl", "smbpasswd"}:
+    if command in {"sleep", "sync", "modprobe", "rmmod", "systemctl", "hciconfig", "bluealsa", "bluetoothctl", "dhclient", "xradio", "alsactl", "smbpasswd", "mkswap", "swapon", "swapoff"}:
         print_and_exit(command, argv)
 
     if command == "hwclock":
@@ -457,6 +461,17 @@ def main():
 
     if command in {"curl", "wget"}:
         print_and_exit(command, argv, 0, "{}\n")
+
+    if command == "dd":
+        output_path = None
+        for arg in argv:
+            if arg.startswith("of="):
+                output_path = Path(arg.split("=", 1)[1])
+                break
+        if output_path is not None:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"spruce-harness-swap\n")
+        print_and_exit(command, argv)
 
     if command == "7zr":
         if argv and argv[0] == "l":
