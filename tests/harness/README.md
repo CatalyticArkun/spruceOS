@@ -22,9 +22,16 @@ This harness branch must never be pushed to `upstream`. The `upstream` remote is
 receive-only for pulling updates from `spruceUI/spruceOS`; all harness work must
 push to `origin`, the `CatalyticArkun/spruceOS` fork.
 
+This harness branch must also never be used as a pull-request source branch.
+Do not open PRs from `catalyticarkun/spruceos-harness` into `Development`,
+`main`, `upstream/Development`, or any `spruceUI/spruceOS` branch. If harness
+work needs review later, create a separate review branch and cherry-pick the
+approved commits there.
+
 This checkout uses a local `core.hooksPath=.githooks` setting and a pre-push hook
 that rejects pushes to `upstream` or to the canonical `spruceUI/spruceOS` URL.
-The local `upstream` push URL should also remain set to a disabled placeholder.
+The hook also rejects pull-request style refs from this branch. The local
+`upstream` push URL should remain set to a disabled placeholder.
 
 ## Running
 

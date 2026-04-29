@@ -4,6 +4,7 @@ set -eu
 remote_name="${1:-}"
 remote_url="${2:-}"
 current_branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+no_pr_branch="catalyticarkun/spruceos-harness"
 
 case "$remote_name:$remote_url" in
     upstream:*|*:https://github.com/spruceUI/spruceOS.git|*:git@github.com:spruceUI/spruceOS.git)
@@ -12,10 +13,19 @@ case "$remote_name:$remote_url" in
         ;;
 esac
 
-if [ "$current_branch" = "catalyticarkun/spruceos-harness" ] &&
+if [ "$current_branch" = "$no_pr_branch" ] &&
    [ "$remote_name" != "origin" ]; then
-    echo "ERROR: catalyticarkun/spruceos-harness may only be pushed to origin." >&2
+    echo "ERROR: $no_pr_branch may only be pushed to origin." >&2
     exit 1
 fi
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$current_branch:$remote_ref" in
+        "$no_pr_branch":refs/pull/*|"$no_pr_branch":refs/merge-requests/*)
+            echo "ERROR: $no_pr_branch is a no-PR branch. Do not create pull-request refs from it." >&2
+            exit 1
+            ;;
+    esac
+done
 
 exit 0
