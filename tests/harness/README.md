@@ -44,7 +44,7 @@ python3 -m pytest tests/smoke -m "not device_surface"
 On-device simulated smoke tests:
 
 ```sh
-SPRUCE_HARNESS_ALLOW_DEVICE_SIM=1 python3 -m pytest tests/smoke -m "not device_surface"
+SPRUCE_HARNESS_LAYER=device-sim SPRUCE_HARNESS_ALLOW_DEVICE_SIM=1 python3 -m pytest tests/smoke -m "not device_surface"
 ```
 
 Actual device surface probes:

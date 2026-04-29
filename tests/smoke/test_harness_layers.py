@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import REPO_ROOT
-from spruce_harness import HarnessRunner
+from spruce_harness import HarnessLayer, HarnessRunner
 from spruce_harness.device_surface import collect_surface_observations, surface_enabled
 from spruce_harness.report import build_harness_report
 
@@ -12,6 +12,18 @@ def test_device_sim_layer_requires_explicit_enablement(monkeypatch):
     monkeypatch.delenv("SPRUCE_HARNESS_ALLOW_DEVICE_SIM", raising=False)
     with pytest.raises(RuntimeError):
         HarnessRunner(REPO_ROOT, "flip", layer="device-sim")
+
+
+def test_runner_uses_environment_selected_device_sim_layer(monkeypatch, tmp_path):
+    monkeypatch.setenv("SPRUCE_HARNESS_LAYER", "device-sim")
+    monkeypatch.setenv("SPRUCE_HARNESS_ALLOW_DEVICE_SIM", "1")
+    monkeypatch.setenv("SPRUCE_HARNESS_DEVICE_SIM_ROOT", str(tmp_path / "device-sim-root"))
+    runner = HarnessRunner(REPO_ROOT, "flip")
+    try:
+        assert runner.layer == HarnessLayer.DEVICE_SIM
+        assert runner.root_path == tmp_path / "device-sim-root"
+    finally:
+        runner.cleanup()
 
 
 def test_device_surface_layer_is_explicitly_gated():

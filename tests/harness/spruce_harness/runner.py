@@ -25,12 +25,13 @@ class HarnessRunner:
         self,
         repo_root: Path,
         profile: str | DeviceProfile,
-        layer: HarnessLayer | str = HarnessLayer.HOST_SIM,
+        layer: HarnessLayer | str | None = None,
         root: Path | None = None,
     ):
         self.repo_root = Path(repo_root)
         self.profile = load_profile(profile) if isinstance(profile, str) else profile
-        self.layer = HarnessLayer(layer)
+        selected_layer = layer or os.environ.get("SPRUCE_HARNESS_LAYER", HarnessLayer.HOST_SIM.value)
+        self.layer = HarnessLayer(selected_layer)
         self._tempdir: tempfile.TemporaryDirectory[str] | None = None
         self.root_path = root or self._default_root()
         self.fake_root = FakeRoot(self.repo_root, self.profile, self.root_path).build()
