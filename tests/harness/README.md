@@ -46,6 +46,13 @@ Actual device surface probes:
 SPRUCE_HARNESS_ALLOW_DEVICE_SURFACE=1 python3 -m pytest tests/smoke -m device_surface
 ```
 
+Harness coverage report:
+
+```sh
+python3 tests/harness/report.py --format markdown
+python3 tests/harness/report.py --format json
+```
+
 ## Contract
 
 Smoke tests should assert:
@@ -56,6 +63,10 @@ Smoke tests should assert:
 - fake `/tmp` flags
 - fake config changes
 - logs and `system-emit` calls
+
+Current smoke coverage includes platform detection, Wi-Fi contracts, network
+service start/stop behavior, archive unpacking, stage2 poweroff, standard
+emulator launch, and layer gates.
 
 Any test that writes to real device paths belongs in a separate, explicitly
 approved live-device suite, not in this harness.

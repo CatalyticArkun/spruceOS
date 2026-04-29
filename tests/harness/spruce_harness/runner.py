@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from enum import Enum
 from pathlib import Path
 from typing import Iterable
@@ -86,6 +87,20 @@ class HarnessRunner:
             if all(any(value in arg for arg in argv) for value in expected):
                 return True
         return False
+
+    def wait_called(
+        self,
+        command: str,
+        contains: Iterable[str] | None = None,
+        *,
+        timeout: float = 1,
+    ) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.called(command, contains):
+                return True
+            time.sleep(0.02)
+        return self.called(command, contains)
 
     def _default_root(self) -> Path:
         if self.layer == HarnessLayer.DEVICE_SURFACE:

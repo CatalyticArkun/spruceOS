@@ -39,6 +39,7 @@ SHIMMED_COMMANDS = {
     "sendevent",
     "sftpgo",
     "sleep",
+    "smbpasswd",
     "smbd",
     "sync",
     "syncthing",
@@ -142,6 +143,15 @@ class CommandShims:
             "/mnt/SDCARD/RetroArch/ra32.mini": "ra32.mini",
             "/mnt/SDCARD/RetroArch/ra64.universal": "ra64.universal",
             "/mnt/SDCARD/RetroArch/ra64.pixel2": "ra64.pixel2",
+            "/mnt/SDCARD/spruce/bin/Samba/bin/smbpasswd": "smbpasswd",
+            "/mnt/SDCARD/spruce/bin/Samba/bin/smbd": "smbd",
+            "/mnt/SDCARD/spruce/bin64/Samba/bin/smbpasswd": "smbpasswd",
+            "/mnt/SDCARD/spruce/bin64/Samba/bin/smbd": "smbd",
+            "/mnt/SDCARD/spruce/bin/SSH/bin/dropbearmulti": "dropbearmulti",
+            "/mnt/SDCARD/spruce/bin/SFTPGo/sftpgo/sftpgo": "sftpgo",
+            "/mnt/SDCARD/spruce/bin64/SFTPGo/sftpgo/sftpgo": "sftpgo",
+            "/mnt/SDCARD/spruce/bin/Syncthing/bin/syncthing": "syncthing",
+            "/mnt/SDCARD/spruce/bin64/Syncthing/bin/syncthing": "syncthing",
             "/mnt/SDCARD/App/PyUI/launch.sh": "MainUI",
             "/usr/trimui/osd/show_volume_msg.sh": "show_volume_msg.sh",
             "/usr/libexec/bluetooth/bluetoothd": "bluetoothd",
@@ -343,7 +353,7 @@ def main():
     command = sys.argv[1]
     argv = sys.argv[2:]
 
-    if command in {"sleep", "sync", "modprobe", "rmmod", "systemctl", "hciconfig", "bluealsa", "bluetoothctl", "dhclient", "xradio", "alsactl"}:
+    if command in {"sleep", "sync", "modprobe", "rmmod", "systemctl", "hciconfig", "bluealsa", "bluetoothctl", "dhclient", "xradio", "alsactl", "smbpasswd"}:
         print_and_exit(command, argv)
 
     if command == "amixer":
@@ -425,7 +435,7 @@ def main():
 
     if command == "7zr":
         if argv and argv[0] == "l":
-            print_and_exit(command, argv, 0, "/mnt/SDCARD/fake-content\n")
+            print_and_exit(command, argv, 0, str(ROOT / "mnt/SDCARD/fake-content") + "\n")
         print_and_exit(command, argv)
 
     if command == "jq":

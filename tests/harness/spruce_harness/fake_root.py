@@ -81,11 +81,13 @@ class FakeRoot:
     def rewrite_text(self, text: str) -> str:
         prefixes = sorted(REAL_PREFIXES, key=len, reverse=True)
         pattern = re.compile(
-            "|".join(f"{re.escape(prefix)}(?=/|$|[^A-Za-z0-9_./-])" for prefix in prefixes)
+            rf"(?<![A-Za-z0-9_./])({'|'.join(re.escape(prefix) for prefix in prefixes)})(/[A-Za-z0-9_@%+=,./-]*)?"
         )
 
         def replace(match: re.Match[str]) -> str:
-            return str(self.fake_path(match.group(0)))
+            prefix = match.group(1)
+            suffix = match.group(2) or ""
+            return str(self.fake_path(prefix)) + suffix
 
         return pattern.sub(replace, text)
 
@@ -94,6 +96,7 @@ class FakeRoot:
             "harness",
             "mnt",
             "mnt/SDCARD",
+            "mnt/SDCARD/spruce/flags",
             "mnt/UDISK",
             "mnt/vendor/bin",
             "mnt/vendor/oem",

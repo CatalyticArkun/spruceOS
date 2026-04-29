@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import pytest
 
+from conftest import REPO_ROOT
+from spruce_harness import HarnessRunner
 from spruce_harness.device_surface import collect_surface_observations, surface_enabled
+from spruce_harness.report import build_harness_report
+
+
+def test_device_sim_layer_requires_explicit_enablement(monkeypatch):
+    monkeypatch.delenv("SPRUCE_HARNESS_ALLOW_DEVICE_SIM", raising=False)
+    with pytest.raises(RuntimeError):
+        HarnessRunner(REPO_ROOT, "flip", layer="device-sim")
 
 
 def test_device_surface_layer_is_explicitly_gated():
@@ -13,6 +22,15 @@ def test_device_surface_layer_is_explicitly_gated():
     else:
         with pytest.raises(RuntimeError):
             collect_surface_observations()
+
+
+def test_harness_coverage_report_lists_core_surfaces():
+    report = build_harness_report()
+    assert "flip" in report["profiles"]
+    assert "ifconfig" in report["shimmed_commands"]
+    assert "/mnt/SDCARD" in report["real_path_prefixes"]
+    assert "network_services" in report["smoke_surfaces"]
+    assert "archive_unpacker" in report["smoke_surfaces"]
 
 
 @pytest.mark.device_surface
