@@ -17,7 +17,9 @@ SHIMMED_COMMANDS = {
     "dropbearmulti",
     "getevent",
     "hciconfig",
+    "hwclock",
     "idlemon",
+    "idlemon_mm.sh",
     "ifconfig",
     "ip",
     "jq",
@@ -152,6 +154,7 @@ class CommandShims:
             "/mnt/SDCARD/spruce/bin64/SFTPGo/sftpgo/sftpgo": "sftpgo",
             "/mnt/SDCARD/spruce/bin/Syncthing/bin/syncthing": "syncthing",
             "/mnt/SDCARD/spruce/bin64/Syncthing/bin/syncthing": "syncthing",
+            "/mnt/SDCARD/spruce/scripts/applySetting/idlemon_mm.sh": "idlemon_mm.sh",
             "/mnt/SDCARD/App/PyUI/launch.sh": "MainUI",
             "/usr/trimui/osd/show_volume_msg.sh": "show_volume_msg.sh",
             "/usr/libexec/bluetooth/bluetoothd": "bluetoothd",
@@ -356,6 +359,9 @@ def main():
     if command in {"sleep", "sync", "modprobe", "rmmod", "systemctl", "hciconfig", "bluealsa", "bluetoothctl", "dhclient", "xradio", "alsactl", "smbpasswd"}:
         print_and_exit(command, argv)
 
+    if command == "hwclock":
+        print_and_exit(command, argv, stdout="Sat Jan 10 14:23:54 2026  0.000000 seconds\n")
+
     if command == "amixer":
         print_and_exit(command, argv, stdout="Front Left: 10 [50%]\n")
 
@@ -386,7 +392,7 @@ def main():
             print_and_exit(command, argv, 1)
         print_and_exit(command, argv)
 
-    if command in {"wpa_supplicant", "udhcpc", "darkhttpd", "syncthing", "smbd", "sftpgo", "dropbearmulti", "idlemon", "ra32.universal", "ra32.a30", "ra32.mini", "ra64.universal", "ra64.pixel2", "MainUI", "bluetoothd"}:
+    if command in {"wpa_supplicant", "udhcpc", "darkhttpd", "syncthing", "smbd", "sftpgo", "dropbearmulti", "idlemon", "idlemon_mm.sh", "ra32.universal", "ra32.a30", "ra32.mini", "ra64.universal", "ra64.pixel2", "MainUI", "bluetoothd"}:
         add_process(command, argv)
         print_and_exit(command, argv)
 

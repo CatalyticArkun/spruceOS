@@ -33,6 +33,13 @@ SMOKE_SURFACES = {
         "spruce/scripts/archiveUnpacker.sh",
         "spruce/scripts/firstbootLaneCommon.sh",
     ],
+    "runtime_helper": [
+        "spruce/scripts/runtimeHelper.sh",
+    ],
+    "sleep_helper": [
+        "spruce/scripts/sleep_helper.sh",
+        "spruce/scripts/platform/device_functions/utils/sleep_functions.sh",
+    ],
     "poweroff_stage2": [
         "spruce/scripts/save_poweroff_stage2.sh",
     ],
