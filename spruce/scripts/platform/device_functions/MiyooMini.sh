@@ -56,6 +56,15 @@ device_init() {
     if [ "$variant" = "MIYOO_MINI_PLUS" ]; then
         # Screen is off by like ~8px unless you do this, not sure why
         cat /proc/ls
+        # export brightness settings
+        echo 0 > /sys/class/pwm/pwmchip0/export
+        # Unsure what this value should be, 1k seems to work
+        echo 1000 >  /sys/class/pwm/pwmchip0/pwm0/period
+        backlight=$(jq -r '.backlight' "$SYSTEM_JSON")
+        duty_cycle=$((backlight * 10))
+        echo "$duty_cycle" > /sys/class/pwm/pwmchip0/pwm0/duty_cycle
+        echo 1 >  /sys/class/pwm/pwmchip0/pwm0/enable
+
     fi
     killall -9 main ### SUPER important in preventing .tmp_update suicide
 }
@@ -106,22 +115,12 @@ get_current_volume() {
     log_message "Intentionally do not let spruce modify volume" -v
 }
 
-reset_playback_pack() {
-    log_message "Intentionally do not let spruce modify audio, let keymon" -v
-}
-
-run_mixer_watchdog() {
-    log_message "Intentionally do not let spruce modify audio, let keymon" -v
-}
-
 new_execution_loop() {
     pidof audioserver >/dev/null || audioserver &
 }
 
-setup_for_retroarch_and_get_bin_location(){
-	RA_DIR="/mnt/SDCARD/RetroArch"
+setup_for_retroarch(){
     export CORE_DIR="/mnt/SDCARD/RetroArch/.retroarch/cores"
-    export RA_BIN="ra32.mini"
 
 	if [ -f "$EMU_DIR/${CORE}_libretro.so" ]; then
 		export CORE_PATH="$EMU_DIR/${CORE}_libretro.so"
@@ -154,11 +153,6 @@ launch_startup_watchdogs(){
         launch_common_startup_watchdogs_v2 "false"
     fi
 }
-
-perform_fw_check(){
-    log_message "No Fw Check for MiyooMini" -v
-}
-
 
 # Should the above be merged into here?
 check_if_fw_needs_update() {
@@ -202,7 +196,7 @@ set_volume() {
     if pgrep -f "./drastic(32|64)?" >/dev/null; then
         VOLUME_LV="$1"
         SAVE_TO_CONFIG="${2:-true}"   # Optional 2nd arg, defaults to true
-        /mnt/SDCARD/spruce/scripts/platform/device_functions/miyoomini/mm_set_volume.py "$VOLUME_LV" &
+        /mnt/SDCARD/spruce/miyoomini/bin/mm_set_volume.py "$VOLUME_LV" &
 
         # Call save_volume_to_config_file only if SAVE_TO_CONFIG is true
         if [ "$SAVE_TO_CONFIG" = true ]; then
@@ -226,6 +220,7 @@ set_backlight() {
     jq ".backlight = $value" "$SYSTEM_JSON" > "$SYSTEM_JSON.tmp" && mv "$SYSTEM_JSON.tmp" "$SYSTEM_JSON"
     # Should we get this from path or always from PyUI?
     /mnt/SDCARD/App/PyUI/main-ui/devices/miyoo/mini/set_shared_memory 1 "$value"
+    "$SYSTEM_EMIT" brightness-level "$value" "MiyooMini.sh/set_backlight" 2>/dev/null || true
 }
 
 brightness_down() {

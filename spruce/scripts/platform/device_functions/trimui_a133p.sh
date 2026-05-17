@@ -115,16 +115,8 @@ get_volume_level() {
     jq -r '.vol' "$SYSTEM_JSON"
 }
 
-run_mixer_watchdog() {
-    log_message "*** nothing to do for run_mixer_watchdog" -v
-}
-
 new_execution_loop() {
     log_message "*** nothing to do for new_execution_loop" -v
-}
-
-setup_for_retroarch_and_get_bin_location(){
-    setup_for_retroarch_and_get_bin_location_trimui
 }
 
 prepare_for_pyui_launch(){
@@ -138,10 +130,6 @@ post_pyui_exit(){
     log_message "*** nothing to do for post_pyui_exit" -v
 }
 
-perform_fw_check(){
-    log_message "*** nothing to do for perform_fw_check" -v
-}
-
 # Should the above be merged into here?
 check_if_fw_needs_update() {
     check_if_fw_needs_update_trimui
@@ -149,12 +137,6 @@ check_if_fw_needs_update() {
 
 take_screenshot() {
     screenshot_path="$1"
-    ppsspp_mode="${2:-true}"   # Optional 2nd arg, defaults to true
-
-    if [ "$ppsspp_mode" = true ]; then
-        close_ppsspp_menu
-    fi
-
     /mnt/SDCARD/spruce/bin64/fbscreenshot "$screenshot_path"
 }
 
@@ -224,10 +206,6 @@ set_default_ra_hotkeys() {
 
 }
 
-reset_playback_pack() {
-    log_message "reset_playback_pack Uneeded on this device" -v
-}
-
 # 'Discharging', 'Charging', or 'Full' are possible values. Mind the capitalization.
 device_get_charging_status() {
 	cat "$BATTERY/status"
@@ -247,7 +225,6 @@ device_cleanup_after_ports_run() {
 
 set_backlight() {
     val="$1"
-
 
     # Clamp input to 1–10
     [ "$val" -lt 1 ] && val=1
@@ -287,6 +264,7 @@ EOF
 
     tmp=$(mktemp)
     jq ".backlight = $val" "$SYSTEM_JSON" > "$tmp" && mv "$tmp" "$SYSTEM_JSON"
+    "$SYSTEM_EMIT" brightness-level "$val" "trimui_a133p.sh/set_backlight" 2>/dev/null || true
 }
 
 

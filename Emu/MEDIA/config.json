@@ -5,7 +5,26 @@
   "themecolor": "DDEEFF",
   "launch": "../../spruce/scripts/emu/standard_launch.sh",
   "extlist": "mp4|mkv|avi|mov|flv|ts|mp3|m4a|wav|aac|flac|ogg|opus|mka|ay|gbs|gym|hes|kss|nsf|nsfe|sap|spc|vgm|vgz",
-  "launchlist": [],
+  "launchlist": [
+    {
+      "name": "Open GVU Browser",
+      "launch": "/mnt/SDCARD/Emu/MEDIA/open_gvu_browser.sh",
+      "devices": [
+        "TRIMUI_BRICK",
+        "TRIMUI_SMART_PRO",
+        "TRIMUI_SMART_PRO_S",
+        "MIYOO_FLIP",
+        "MIYOO_A30",
+        "ANBERNIC_RG34XXSP",
+        "ANBERNIC_RG28XX",
+        "ANBERNIC_RGXX640480",
+        "MIYOO_MINI",
+        "MIYOO_MINI_V4",
+        "MIYOO_MINI_PLUS",
+        "MIYOO_MINI_FLIP"
+      ]
+    }
+  ],
   "menuOptions": {
     "Emulator_32": {
       "display": "Emulator",
@@ -17,10 +36,11 @@
         "MIYOO_MINI_FLIP"
       ],
       "options": [
+        "gvu",
         "ffplay",
         "gme"
       ],
-      "selected": "ffplay",
+      "selected": "gvu",
       "overrides": {}
     },
     "Emulator_64": {
@@ -34,10 +54,11 @@
         "ANBERNIC_RGXX640480"
       ],
       "options": [
+        "gvu",
         "ffplay",
         "gme"
       ],
-      "selected": "ffplay",
+      "selected": "gvu",
       "overrides": {}
     },
     "Emulator_Pixel2": {

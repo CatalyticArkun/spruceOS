@@ -6,7 +6,12 @@
   "launch": "../../spruce/scripts/emu/standard_launch.sh",
   "subfolder_launch_file": "EBOOT.PBP",
   "extlist": "iso|cso|chd|pbp",
-  "launchlist": [],
+  "launchlist": [
+    {
+      "name": "Generate M3U playlists for multi-disc games",
+      "launch": "/mnt/SDCARD/Emu/.emu_setup/m3u_generator.sh"
+    }
+  ],
   "menuOptions": {
     "Governor": {
       "display": "CPU Mode",
@@ -23,7 +28,7 @@
   "brand": "Sony",
   "type": "handheld",
   "releaseYear": 2004,
-  "default_emulator": "standalone",
+  "default_emulator": "PPSSPP-SA",
   "scaling_min_freq": 1008000,
   "devices": [
     "TRIMUI_BRICK",

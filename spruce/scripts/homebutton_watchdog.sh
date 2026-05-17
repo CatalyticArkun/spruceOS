@@ -16,11 +16,6 @@ kill_port(){
 
         capture_screen
 
-
-        # Don't relaunch if somehow the exit fails
-        rm -f /tmp/cmd_to_run.sh
-        rm -f /mnt/SDCARD/spruce/flags/lastgame.lock
-
         SID=$(cat /tmp/last_port_sid)
         kill -TERM -"$SID" 2>/dev/null
         sleep 2
@@ -69,22 +64,10 @@ kill_drastic() {
 }
 
 kill_ppsspp() {
-	log_message "homebutton_watchdog.sh: Killing PPSSPP!" 
+	log_message "homebutton_watchdog.sh: Killing PPSSPP!"
 
-    # use sendevent to send SELECT + R1 combo buttons to PPSSPP
-    {
-        # send autosave hot key
-        echo $B_SELECT 1 # SELECT press
-        echo $B_R1 1     # R1 press
-        echo $B_R1 0     # R1 release
-        echo $B_SELECT 0 # SELECT release
-        echo 0 0 0       # tell sendevent to exit
-    } | sendevent $EVENT_PATH_SEND_TO_RA_AND_PPSSPP
-    
-    sleep 1 # wait to ensure save process is started
-    # kill PPSSPP with signal 15, it should exit after saving is done
-    killall -q -15 PPSSPPSDL_$PLATFORM
-    killall -q -15 PPSSPPSDL_TrimUI
+    # Send SIGUSR1 to trigger save-and-quit (saves state then exits cleanly)
+    killall -q -USR1 PPSSPPSDL_TrimUI PPSSPPSDL_SmartProS PPSSPPSDL_Flip PPSSPPSDL_A30 PPSSPPSDL_Pixel2
 }
 
 kill_scummvm() {
@@ -96,9 +79,32 @@ kill_scummvm() {
     killall -q -15 scummvm scummvm.64 scummvm.a30 scummvm.mini
 }
 
+kill_mupen() {
+	log_message "homebutton_watchdog.sh: Saving and killing mupen64plus!"
+    # Send SIGUSR1 to trigger save-state-and-quit
+    killall -q -USR1 mupen64plus
+    sleep 2
+    # SIGTERM as fallback in case it didn't exit
+    killall -q -15 mupen64plus
+}
+
+kill_gvu() {
+	log_message "homebutton_watchdog.sh: Killing GVU!"
+	killall -q -15 gvu
+}
+
+kill_pcsx() {
+	log_message "homebutton_watchdog.sh: Saving and killing PCSX-ReARMed!"
+    # Send SIGUSR1 to trigger save-state-and-quit
+    killall -q -USR1 pcsx_64 pcsx_a30 pcsx_mini
+    sleep 2
+    # SIGTERM as fallback in case it didn't exit
+    killall -q -15 pcsx_64 pcsx_a30 pcsx_mini
+}
+
 kill_ra_and_standard_emulators() {
 	log_message "homebutton_watchdog.sh: Killing miscelaneous emus!"
-    killall -q -15 ra32.a30 ra32.mini ra64.universal ra64.pixel2 retroarch pico8_dyn pico8_64 flycast flycast-stock yabasanshiro yabasanshiro.trimui mupen64plus
+    killall -q -15 ra32.a30 ra32.mini ra32.universal ra64.universal ra64.pixel2 retroarch pico8_dyn pico8_64 flycast flycast-stock yabasanshiro yabasanshiro.trimui
 }
 
 kill_emulator() {
@@ -108,6 +114,12 @@ kill_emulator() {
         kill_ppsspp
     elif pgrep -f "./scummvm" >/dev/null; then
         kill_scummvm
+    elif pgrep -f "mupen64plus" >/dev/null; then
+        kill_mupen
+    elif pgrep -f "pcsx_64|pcsx_a30|pcsx_mini" >/dev/null; then
+        kill_pcsx
+    elif pgrep "gvu" >/dev/null; then
+        kill_gvu
     else
         kill_ra_and_standard_emulators
     fi
@@ -202,6 +214,7 @@ prepare_game_switcher() {
         touch /mnt/SDCARD/App/PyUI/pyui_gs_trigger
 
         kill_emulator
+        kill_port
 
     # if in MainUI menu
     elif pgrep "MainUI" >/dev/null; then
@@ -222,7 +235,15 @@ perform_action() {
         prepare_game_switcher
         ;;
     "Emulator menu")
-        send_menu_button_to_retroarch
+        if pgrep -f "./PPSSPPSDL" >/dev/null; then
+            killall -q -USR2 PPSSPPSDL_TrimUI PPSSPPSDL_SmartProS PPSSPPSDL_Flip PPSSPPSDL_A30 PPSSPPSDL_Pixel2
+        elif pgrep -f "pcsx_64|pcsx_a30|pcsx_mini" >/dev/null; then
+            killall -q -USR2 pcsx_64 pcsx_a30 pcsx_mini
+        elif pgrep -f "mupen64plus" >/dev/null; then
+            killall -q -USR2 mupen64plus
+        else
+            send_menu_button_to_retroarch
+        fi
         ;;
     "Exit game")
         # resume MainUI if it is running
@@ -276,7 +297,14 @@ home_key_down () {
                 HOLD_HOME="$(get_config_value '.menuOptions."Emulator Settings".holdHomeAction.selected' "Game Switcher")"
                 log_message "homebutton_watchdog.sh: Performing hold-home action: $HOLD_HOME"
                 perform_action "$HOLD_HOME"
-                kill_port
+
+                # Only clean up game state when the action actually killed the game.
+                # "Emulator menu" just opens an in-game menu — the game is still running.
+                if [ "$HOLD_HOME" != "Emulator menu" ]; then
+                    rm -f /tmp/cmd_to_run.sh
+                    rm -f /mnt/SDCARD/spruce/flags/lastgame.lock
+                fi
+
             fi
         ) &
         menu_hold_pid=$!
@@ -305,7 +333,6 @@ home_key_up () {
             TAP_HOME="$(get_config_value '.menuOptions."Emulator Settings".tapHomeAction.selected' "Emulator menu")"
             log_message "homebutton_watchdog.sh: Performing tap-home action: $TAP_HOME"
             perform_action "$TAP_HOME"
-            kill_port
         fi
 
         resume_drastic

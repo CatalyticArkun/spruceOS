@@ -115,28 +115,6 @@ volume_up() {
     fi
 }
 
-run_mixer_watchdog() {
-    log_message "run_mixer_watchdog unecessary for smart pro s?" -v
-}
-
-setup_for_retroarch_and_get_bin_location(){
-    setup_for_retroarch_and_get_bin_location_trimui
-}
-
-# Send L3 and R3 press event, this would toggle in-game and pause in RA
-# or toggle in-game menu in PPSSPP
-send_virtual_key_L3R3() {
-    {
-        echo $B_MENU 0 # MENU up
-        echo $B_L3 1 # L3 down
-        echo $B_R3 1 # R3 down
-        sleep 0.1
-        echo $B_R3 0 # R3 up
-        echo $B_L3 0 # L3 up
-        echo 0 0 0   # tell sendevent to exit
-    } | sendevent $EVENT_PATH_SEND_TO_RA_AND_PPSSPP
-}
-
 send_virtual_key_L3() {
     {
         echo $B_MENU 0 # MENU up
@@ -154,11 +132,6 @@ prepare_for_pyui_launch(){
 post_pyui_exit(){
     log_message "post_pyui_exit not needed for Trim UI Smart Pro S " -v
 }
-
-perform_fw_check(){
-    log_message "perform_fw_check not needed for Trim UI Smart Pro S " -v
-}
-
 
 compare_current_version_to_version() {
     target_version="$1"
@@ -207,12 +180,6 @@ check_if_fw_needs_update() {
 
 take_screenshot() {
     screenshot_path="$1"
-    ppsspp_mode="${2:-true}"   # Optional 2nd arg, defaults to true
-
-    if [ "$ppsspp_mode" = true ]; then
-        close_ppsspp_menu
-    fi
-
     /mnt/SDCARD/spruce/bin64/kmsgrab "$screenshot_path"
 }
 
@@ -348,10 +315,6 @@ set_default_ra_hotkeys() {
 
 }
 
-reset_playback_pack() {
-    log_message "reset_playback_pack Uneeded on this device" -v
-}
-
 new_execution_loop() {
     log_message "new_execution_loop Uneeded on this device" -v
 }
@@ -443,35 +406,24 @@ device_home_button_pressed() {
 }
 
 device_stop_thermal_process(){
-    custom_thermal_watchdog="$(get_config_value '.menuOptions."System Settings".customThermals.selected' "Stock")"
-    case "$custom_thermal_watchdog" in
-        "Cool")
-            killall thermal-watchdog
-            ;;
-        *)
-            pid=$(ps -eo pid,args | grep '[a]daptive_fan.py' | awk '{print $1}')
-            if [ -n "$pid" ]; then
-                kill "$pid"
-            fi
-            ;;
-    esac
+    killall thermal-watchdog 2>/dev/null
+    pid=$(ps -eo pid,args | grep '[a]daptive_fan.py' | awk '{print $1}')
+    [ -n "$pid" ] && kill "$pid"
+    echo 0 > /sys/class/thermal/cooling_device0/cur_state
 }
 
 device_run_thermal_process(){
-    # Initial trip point = 60C (Fan should kick on -- No throttling noticed)
-    # Second trip point = 70C (CPU/GPU Start getting throttled)
-    # Third trip point = 105C (Likely Critical shutdown -- Untested) 
+    THERMAL_PROFILE_DIR="/mnt/SDCARD/spruce/smartpros/etc/thermal-watchdog"
+    selected="$(get_config_value '.menuOptions."System Settings".customThermals.selected' "Smart")"
 
-    custom_thermal_watchdog="$(get_config_value '.menuOptions."System Settings".customThermals.selected' "Adaptive")"
-    if [ "$custom_thermal_watchdog" = "Cool" ]; then
-        # Fan is always on
-        echo "smart" > /mnt/SDCARD/spruce/smartpros/etc/thermal-watchdog
-        /mnt/SDCARD/spruce/smartpros/bin/thermal-watchdog &
-    else
-        # Fan adjusts only to prevent throttling
+    if [ "$selected" = "Adaptive" ]; then
         python /mnt/SDCARD/spruce/scripts/platform/device_functions/utils/smartpros/adaptive_fan.py --lower 60 --upper 70 &
+    else
+        # Convert display name to lowercase profile name
+        profile=$(echo "$selected" | tr 'A-Z' 'a-z')
+        echo "$profile" > "$THERMAL_PROFILE_DIR/active_profile"
+        /mnt/SDCARD/spruce/smartpros/bin/thermal-watchdog &
     fi
-
 }
 
 set_backlight() {
@@ -490,6 +442,7 @@ set_backlight() {
     # update device system json
     tmp=$(mktemp)
     jq ".backlight = $val" "$SYSTEM_JSON" > "$tmp" && mv "$tmp" "$SYSTEM_JSON"
+    "$SYSTEM_EMIT" brightness-level "$val" "SmartProS.sh/set_backlight" 2>/dev/null || true
 }
 
 

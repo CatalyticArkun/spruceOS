@@ -13,6 +13,12 @@ log_message "trying: $0 $@"
 . /mnt/SDCARD/spruce/scripts/emu/lib/general_functions.sh
 
 export LOG_DIR=/mnt/SDCARD/Saves/spruce
+VERBOSE_SETTING="$(get_config_value '.menuOptions."Emulator Settings".verboseLogging.selected' "False")"
+if [ "$VERBOSE_SETTING" = "True" ]; then
+	export VERBOSE_EMU=1
+else
+	export VERBOSE_EMU=0
+fi
 emu_name=${0#*/Emu/}   # remove prefix up to /Emu/
 emu_name=${emu_name%%/*}  # keep only up to next /
 export EMU_NAME="$emu_name"
@@ -33,6 +39,7 @@ export ROM_FILE="$(readlink -f "$ROM_FILE")"
 ##### MAIN EXECUTION #####
  ########################
 
+export RA_BUILD="$(get_effective_ra_build)"
 set_emu_core_from_emu_json
 if [ -z "$CORE" ] || [ "$CORE" = "null" ]; then	use_default_emulator ; fi
 get_core_override
@@ -50,7 +57,16 @@ case $EMU_NAME in
 		. /mnt/SDCARD/spruce/scripts/emu/lib/ports_functions.sh
 		run_A30_port
 		;;
-		
+
+	"ARCADE")
+		if [ "$CORE" = "advmame-standalone" ]; then
+			. /mnt/SDCARD/spruce/scripts/emu/lib/advmame_functions.sh
+			run_advmame
+		else
+			run_retroarch
+		fi
+		;;
+
 	"DC"|"NAOMI")
 		if [ "$CORE" = "Flycast-standalone" ] || [ "$CORE" = "Flycast-stock" ]; then
 			. /mnt/SDCARD/spruce/scripts/emu/lib/flycast_functions.sh
@@ -67,13 +83,20 @@ case $EMU_NAME in
 		;;
 
 	"GB"*)
-		APPLY_PO="$(get_config_value '.menuOptions."Emulator Settings".perfectOverlays.selected' "False")"
+		if [ "$DISPLAY_ASPECT_RATIO" = "4:3" ]; then
+			APPLY_PO="$(get_config_value '.menuOptions."Emulator Settings".perfectOverlays.selected' "False")"
+		else
+			APPLY_PO="False"
+		fi
 		/mnt/SDCARD/spruce/scripts/applySetting/PerfectOverlays/applyPerfectOs.sh "$APPLY_PO"
 		run_retroarch
 		;;
 
 	"MEDIA")
-		if [ "$CORE" = "ffplay" ]; then
+		if [ "$CORE" = "gvu" ] || [ "$OPEN_GVU_BROWSER" = "true" ]; then
+			. /mnt/SDCARD/spruce/scripts/emu/lib/media_functions.sh
+			run_gvu
+		elif [ "$CORE" = "ffplay" ]; then
 			. /mnt/SDCARD/spruce/scripts/emu/lib/media_functions.sh
 			run_ffplay
 		elif [ "$CORE" = "mpv" ]; then
@@ -116,12 +139,19 @@ case $EMU_NAME in
 		run_port
 		;;
 
+	"PS")
+		if [ "$CORE" = "PCSX-ReARMed-standalone" ]; then
+			. /mnt/SDCARD/spruce/scripts/emu/lib/pcsx_functions.sh
+			run_pcsx_standalone
+		else
+			run_retroarch
+		fi
+		;;
+
 	"PSP")
 		. /mnt/SDCARD/spruce/scripts/emu/lib/ppsspp_functions.sh
 		[ ! -d "/mnt/SDCARD/Saves/.config" ] && move_dotconfig_into_place
-		load_ppsspp_configs
 		run_ppsspp
-		save_ppsspp_configs
 		;;
 
 	"SATURN")
@@ -138,6 +168,7 @@ case $EMU_NAME in
 		. /mnt/SDCARD/spruce/scripts/emu/lib/scummvm_functions.sh
 		if [ "$OPEN_SCUMMVM_MENU" = "true" ]; then
 			run_scummvm_menu
+			sync_game_id
 		elif [ "$RUN_SCUMMVM_SCAN" = "true" ]; then
 			run_scummvm_scan
 		elif [ "$CORE" = "scummvm-standalone" ]; then

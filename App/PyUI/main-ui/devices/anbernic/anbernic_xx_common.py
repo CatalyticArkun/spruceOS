@@ -112,7 +112,7 @@ class AnbernicXXCommon(DeviceCommon):
         DEV = "/dev/disp"
         IOCTL_SET_BRIGHTNESS = 0x102
         #Is actually 128
-        val = self.map_backlight_from_10_to_full_255(self.system_config.backlight //2)
+        val = self.map_backlight_from_10_to_full_255(self.system_config.backlight) // 2
 
         # 4 unsigned long values (ARM64 = 8 bytes each)
         args = struct.pack("QQQQ", 0, val, 0, 0)
@@ -167,8 +167,8 @@ class AnbernicXXCommon(DeviceCommon):
 
             Controller.clear_input_queue()
 
-    def run_cmd(self, args, dir = None):
-        MiyooTrimCommon.run_cmd(self, args, dir)
+    def run_cmd(self, args, dir = None, is_power_cmd = False):
+        MiyooTrimCommon.run_cmd(self, args, dir, is_power_cmd)
             
     def run_app(self, folder,launch):
         if(PyUiConfig.mimic_miyoo_mainui_mode()):

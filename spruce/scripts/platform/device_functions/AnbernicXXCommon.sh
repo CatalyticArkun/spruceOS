@@ -49,21 +49,11 @@ send_virtual_key_L3() {
 
 
 has_lid() {
-    CMDLINE=$(cat /proc/cmdline)
-
-    case "$CMDLINE" in
-        *lcd_type=boe*)
-            # RG34xxSP
-            return 0
-            ;;
-        *lcd_type=old*)
-            if strings /mnt/vendor/bin/dmenu.bin 2>/dev/null | grep -q '^RG35xxSP'; then
-                return 0
-            fi
-            ;;
+    BOARD="$(cat /mnt/vendor/oem/board.ini)"
+    case "$BOARD" in
+        *xxSP*) return 0 ;;
+        *)    return 1 ;;
     esac
-
-    return 1
 }
 
 launch_startup_watchdogs(){
@@ -74,10 +64,6 @@ launch_startup_watchdogs(){
     if has_lid >/dev/null; then
         /bin/bash /mnt/SDCARD/spruce/scripts/lid_watchdog_v2.sh &
     fi
-}
-
-perform_fw_check(){
-    log_message "Miyoo Flip can't perform firmware check?" -v
 }
 
 WAKE_ALARM_PATH="/sys/class/rtc/rtc0/wakealarm"
@@ -96,27 +82,6 @@ device_enter_sleep() {
 }
 
 
-close_ppsspp_menu() {
-
-    if pgrep -f "PPSSPPSDL" >/dev/null; then
-        log_message "homebutton_watchdog.sh: Closing PPSSPP menu."
-        # use sendevent to send SELECT + R1 combo buttons to PPSSPP
-        {
-            echo $B_RIGHT 1  
-            echo $B_RIGHT 0  
-            echo $B_A 1  
-            echo $B_A 0  
-        } > /tmp/ppsspp_events.txt
-
-
-        # run sendevent in a fully detached subshell
-        (
-            sendevent $EVENT_PATH_SEND_TO_RA_AND_PPSSPP < /tmp/ppsspp_events.txt
-        ) < /dev/null > /dev/null 2>&1 &
-
-        sleep 0.5
-    fi
-}
 
 take_screenshot() {
     log_message "Unable to doso on 34xxsp currently"
@@ -172,7 +137,7 @@ set_default_ra_hotkeys() {
 }
 
 new_execution_loop() {
-    log_message "new_execution_loop Uneeded on this device" -v
+    log_message "new_execution_loop unneeded on this device" -v
 }
 
 # 'Discharging', 'Charging', or 'Full' are possible values. Mind the capitalization.
@@ -202,6 +167,7 @@ set_volume() {
     system_volume=$(( (new_vol * 31 + 10) / 20 ))
 
     amixer -q set 'lineout volume' "$system_volume"
+    "$SYSTEM_EMIT" audio-level "$new_vol" "AnbernicXXCommon.sh/set_volume" 2>/dev/null || true
 
     if [ "$SAVE_TO_CONFIG" = true ]; then
         current_volume=$(jq -r '.vol' "$SYSTEM_JSON")
@@ -244,7 +210,7 @@ get_volume_level() {
 
 
 send_menu_button_to_retroarch() {
-    if pgrep "ra64.universal" >/dev/null; then
+    if pgrep "ra64.universal" >/dev/null || pgrep "ra32.universal" >/dev/null; then
         echo "MENU_TOGGLE" |  /lib/ld-linux-aarch64.so.1 /mnt/SDCARD/spruce/bin64/netcat -u -w0.1 127.0.0.1 55355
     fi
 }
@@ -269,22 +235,25 @@ device_lid_open() {
     head -c 1 "/sys/class/power_supply/axp2202-battery/hallkey" 2>/dev/null || echo "1"
 }
 
-setup_for_retroarch_and_get_bin_location(){
+setup_for_retroarch(){
 	#RA_DIR="/mnt/vendor/deep/retro"
     #export RA_BIN="retroarch"
     #export CORE_DIR="/mnt/SDCARD/RetroArch/.retroarch/cores"
     #cp /mnt/SDCARD/RetroArch/platform/retroarch-AnbernicRG28XX.cfg /.config/retroarch/retroarch.cfg
 
-	RA_DIR="/mnt/SDCARD/RetroArch"
-	export RA_BIN="ra64.universal"
-    export CORE_DIR="/mnt/SDCARD/RetroArch/.retroarch/cores64"
+    if [ "$RA_BIN" = "ra32.universal" ]; then
+        export CORE_DIR="/mnt/SDCARD/RetroArch/.retroarch/cores"
+        export LD_LIBRARY_PATH="/usr/lib32:$LD_LIBRARY_PATH"
+    else
+        export CORE_DIR="/mnt/SDCARD/RetroArch/.retroarch/cores64"
+    fi
 
 	if [ -f "$EMU_DIR/${CORE}_libretro.so" ]; then
 		export CORE_PATH="$EMU_DIR/${CORE}_libretro.so"
 	else
 		export CORE_PATH="$CORE_DIR/${CORE}_libretro.so"
 	fi
-    
+
     echo "$RA_BIN"
 }
 
